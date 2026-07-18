@@ -1,3 +1,11 @@
+# This is tails1154's modified backend of stoat. It is recommended to use the original stoat backend. This is just so i'm not stealing others software (if you do that you are a terrible person). If i edit any more stoat services, i'l make repositories with their code too.
+
+
+
+
+
+
+
 <div align="center">
 <h1>
   Stoat Backend
