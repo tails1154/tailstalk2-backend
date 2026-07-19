@@ -12,7 +12,6 @@ use rocket::{serde::json::Json, State};
 /// Open a DM with another user.
 ///
 /// If the target is oneself, a saved messages channel is returned.
-#[openapi(tag = "Direct Messaging")]
 #[get("/<target>/dm")]
 pub async fn open_dm(
     db: &State<Database>,

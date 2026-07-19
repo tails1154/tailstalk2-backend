@@ -7,7 +7,6 @@ use revolt_result::Result;
 /// # Fetch Recovery Codes
 ///
 /// Fetch recovery codes for an account.
-#[openapi(tag = "MFA")]
 #[post("/recovery")]
 pub async fn fetch_recovery(
     account: Account,

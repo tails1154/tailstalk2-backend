@@ -13,7 +13,6 @@ use validator::Validate;
 /// # Edit Message
 ///
 /// Edits a message that you've previously sent.
-#[openapi(tag = "Messaging")]
 #[patch("/<target>/messages/<msg>", data = "<edit>")]
 pub async fn edit(
     db: &State<Database>,

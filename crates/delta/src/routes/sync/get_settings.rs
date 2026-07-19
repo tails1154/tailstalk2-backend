@@ -9,7 +9,6 @@ use rocket::State;
 /// Fetch settings from server filtered by keys.
 ///
 /// This will return an object with the requested keys, each value is a tuple of `(timestamp, value)`, the value is the previously uploaded data.
-#[openapi(tag = "Sync")]
 #[post("/settings/fetch", data = "<options>")]
 pub async fn fetch(
     db: &State<Database>,

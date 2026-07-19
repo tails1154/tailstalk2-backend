@@ -8,7 +8,6 @@ use rocket::{serde::json::Json, State};
 /// # Edits a webhook
 ///
 /// Edits a webhook with a token
-#[openapi(tag = "Webhooks")]
 #[patch("/<webhook_id>/<token>", data = "<data>")]
 pub async fn webhook_edit_token(
     db: &State<Database>,

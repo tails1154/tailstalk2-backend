@@ -10,7 +10,6 @@ use rocket::{serde::json::Json, State};
 /// # Fetch Server
 ///
 /// Fetch a server by its id.
-#[openapi(tag = "Server Information")]
 #[get("/<target>?<options..>")]
 pub async fn fetch(
     db: &State<Database>,

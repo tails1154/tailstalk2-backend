@@ -11,7 +11,6 @@ use rocket::{serde::json::Json, State};
 /// # Fetch Channel
 ///
 /// Fetch channel by its id.
-#[openapi(tag = "Channel Information")]
 #[get("/<target>")]
 pub async fn fetch(
     db: &State<Database>,

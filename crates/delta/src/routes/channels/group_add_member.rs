@@ -11,7 +11,6 @@ use rocket_empty::EmptyResponse;
 /// # Add Member to Group
 ///
 /// Adds another user to the group.
-#[openapi(tag = "Groups")]
 #[put("/<group_id>/recipients/<member_id>")]
 pub async fn add_member(
     db: &State<Database>,

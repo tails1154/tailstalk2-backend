@@ -7,7 +7,6 @@ use rocket::serde::json::Json;
 /// # Get MFA Methods
 ///
 /// Fetch available MFA methods.
-#[openapi(tag = "MFA")]
 #[get("/methods")]
 pub async fn get_mfa_methods(account: Account) -> Json<Vec<v0::MFAMethod>> {
     Json(

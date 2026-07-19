@@ -15,7 +15,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// Sets permissions for the specified role in this channel.
 ///
 /// Channel must be a `TextChannel`.
-#[openapi(tag = "Channel Permissions")]
 #[put("/<target>/permissions/<role_id>", data = "<data>", rank = 2)]
 pub async fn set_role_permissions(
     db: &State<Database>,

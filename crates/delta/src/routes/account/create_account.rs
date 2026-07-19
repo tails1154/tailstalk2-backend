@@ -22,7 +22,6 @@ use rocket_empty::EmptyResponse;
 /// # Create Account
 ///
 /// Create a new account.
-#[openapi(tag = "Account")]
 #[post("/create", data = "<data>")]
 pub async fn create_account(
     db: &State<Database>,

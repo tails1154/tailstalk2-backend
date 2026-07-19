@@ -12,7 +12,6 @@ use revolt_models::v0;
 /// # Resend Verification
 ///
 /// Resend account creation verification email.
-#[openapi(tag = "Account")]
 #[post("/reverify", data = "<data>")]
 pub async fn resend_verification(
     db: &State<Database>,

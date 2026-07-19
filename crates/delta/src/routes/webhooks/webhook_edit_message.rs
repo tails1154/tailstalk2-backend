@@ -11,7 +11,6 @@ use rocket::{serde::json::Json, State};
 /// # Edits a webhook message
 ///
 /// Edits a message sent by a webhook
-#[openapi(tag = "Webhooks")]
 #[patch("/<webhook_id>/<token>/<message_id>", data = "<data>")]
 pub async fn webhook_edit_message(
     db: &State<Database>,

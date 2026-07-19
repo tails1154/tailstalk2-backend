@@ -10,7 +10,6 @@ use rocket::{serde::json::Json, State};
 /// # Fetch Message
 ///
 /// Retrieves a message by its id.
-#[openapi(tag = "Messaging")]
 #[get("/<target>/messages/<msg>")]
 pub async fn fetch(
     db: &State<Database>,

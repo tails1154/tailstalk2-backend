@@ -12,7 +12,6 @@ use rocket_empty::EmptyResponse;
 /// # Remove Member from Group
 ///
 /// Removes a user from the group.
-#[openapi(tag = "Groups")]
 #[delete("/<group_id>/recipients/<member_id>")]
 pub async fn remove_member(
     db: &State<Database>,

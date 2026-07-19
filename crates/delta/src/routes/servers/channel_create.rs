@@ -14,7 +14,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Create Channel
 ///
 /// Create a new Text or Voice channel.
-#[openapi(tag = "Server Information")]
 #[post("/<server>/channels", data = "<data>")]
 pub async fn create_server_channel(
     db: &State<Database>,

@@ -17,7 +17,6 @@ use rocket::{serde::json::Json, State};
 /// # Join Call
 ///
 /// Asks the voice server for a token to join the call.
-#[openapi(tag = "Voice")]
 #[post("/<target>/join_call", data = "<data>")]
 pub async fn call(
     db: &State<Database>,

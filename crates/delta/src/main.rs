@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate rocket;
 #[macro_use]
-extern crate revolt_rocket_okapi;
-#[macro_use]
 extern crate serde_json;
 
 pub mod routes;
@@ -54,15 +52,6 @@ pub async fn web() -> Rocket<Build> {
     .to_cors()
     .expect("Failed to create CORS.");
 
-    // Configure Swagger
-    let swagger = revolt_rocket_okapi::swagger_ui::make_swagger_ui(
-        &revolt_rocket_okapi::swagger_ui::SwaggerUIConfig {
-            url: "/openapi.json".to_owned(),
-            ..Default::default()
-        },
-    )
-    .into();
-
     // Voice handler
     let voice_client = VoiceClient::new(config.api.livekit.nodes.clone());
     // Configure Rabbit
@@ -84,7 +73,6 @@ pub async fn web() -> Rocket<Build> {
         .mount("/metrics", prometheus)
         .mount("/", rocket_cors::catch_all_options_routes())
         .mount("/", ratelimiter::routes())
-        .mount("/swagger/", swagger)
         .manage(db)
         .manage(amqp)
         .manage(cors.clone())

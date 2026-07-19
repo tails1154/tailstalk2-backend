@@ -8,7 +8,6 @@ use rocket::State;
 /// # Fetch Owned Bots
 ///
 /// Fetch all of the bots that you have control over.
-#[openapi(tag = "Bots")]
 #[get("/@me")]
 pub async fn fetch_owned_bots(db: &State<Database>, user: User) -> Result<Json<OwnedBotsResponse>> {
     let mut bots = db.fetch_bots_by_user(&user.id).await?;

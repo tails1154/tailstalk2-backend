@@ -15,7 +15,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Edit Server
 ///
 /// Edit a server by its id.
-#[openapi(tag = "Server Information")]
 #[patch("/<target>", data = "<data>")]
 pub async fn edit(
     db: &State<Database>,

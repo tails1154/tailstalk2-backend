@@ -14,7 +14,6 @@ use rocket_empty::EmptyResponse;
 /// # Invite Bot
 ///
 /// Invite a bot to a server or group by its id.`
-#[openapi(tag = "Bots")]
 #[post("/<target>/invite", data = "<dest>")]
 pub async fn invite_bot(
     db: &State<Database>,

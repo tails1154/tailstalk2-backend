@@ -8,7 +8,6 @@ use rocket::serde::json::Json;
 /// # MFA Status
 ///
 /// Fetch MFA status of an account.
-#[openapi(tag = "MFA")]
 #[get("/")]
 pub async fn fetch_status(account: Account) -> Result<Json<v0::MultiFactorStatus>> {
     Ok(Json(account.mfa.into()))

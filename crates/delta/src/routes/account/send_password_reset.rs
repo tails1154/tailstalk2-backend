@@ -13,7 +13,6 @@ use revolt_models::v0;
 /// # Send Password Reset
 ///
 /// Send an email to reset account password.
-#[openapi(tag = "Account")]
 #[post("/reset_password", data = "<data>")]
 pub async fn send_password_reset(
     db: &State<Database>,

@@ -8,7 +8,6 @@ use rocket_empty::EmptyResponse;
 /// # Disable Account
 ///
 /// Disable an account.
-#[openapi(tag = "Account")]
 #[post("/disable")]
 pub async fn disable_account(
     db: &State<Database>,

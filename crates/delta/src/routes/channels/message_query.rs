@@ -11,7 +11,6 @@ use validator::Validate;
 /// # Fetch Messages
 ///
 /// Fetch multiple messages.
-#[openapi(tag = "Messaging")]
 #[get("/<target>/messages?<options..>")]
 pub async fn query(
     db: &State<Database>,

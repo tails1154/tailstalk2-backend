@@ -13,7 +13,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Edits server roles ranks
 ///
 /// Edit's server role's ranks.
-#[openapi(tag = "Server Permissions")]
 #[patch("/<target>/roles/ranks", data = "<data>")]
 pub async fn edit_role_ranks(
     db: &State<Database>,

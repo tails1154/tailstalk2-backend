@@ -8,7 +8,6 @@ use rocket_empty::EmptyResponse;
 /// # Logout
 ///
 /// Delete current session.
-#[openapi(tag = "Session")]
 #[post("/logout")]
 pub async fn logout(db: &State<Database>, session: Session) -> Result<EmptyResponse> {
     session.delete(db).await.map(|_| EmptyResponse)

@@ -12,7 +12,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Delete Invite
 ///
 /// Delete an invite by its id.
-#[openapi(tag = "Invites")]
 #[delete("/<target>")]
 pub async fn delete(
     db: &State<Database>,

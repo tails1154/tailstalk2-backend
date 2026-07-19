@@ -10,7 +10,6 @@ use rocket_empty::EmptyResponse;
 /// # Mark Server As Read
 ///
 /// Mark all channels in a server as read.
-#[openapi(tag = "Server Information")]
 #[put("/<target>/ack")]
 pub async fn ack(
     db: &State<Database>,

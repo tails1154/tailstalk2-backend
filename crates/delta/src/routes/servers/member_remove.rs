@@ -16,7 +16,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Kick Member
 ///
 /// Removes a member from the server.
-#[openapi(tag = "Server Members")]
 #[delete("/<server_id>/members/<member_id>")]
 pub async fn kick(
     db: &State<Database>,

@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 /// # hCaptcha Configuration
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct CaptchaFeature {
     /// Whether captcha is enabled
     pub enabled: bool,
@@ -14,7 +14,7 @@ pub struct CaptchaFeature {
 }
 
 /// # Generic Service Configuration
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct Feature {
     /// Whether the service is enabled
     pub enabled: bool,
@@ -23,7 +23,7 @@ pub struct Feature {
 }
 
 /// # Information about a livekit node
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct VoiceNode {
     pub name: String,
     pub lat: f64,
@@ -32,7 +32,7 @@ pub struct VoiceNode {
 }
 
 /// # Voice Server Configuration
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct VoiceFeature {
     /// Whether voice is enabled
     pub enabled: bool,
@@ -41,7 +41,7 @@ pub struct VoiceFeature {
 }
 
 /// # Feature Configuration
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct RevoltFeatures {
     /// hCaptcha configuration
     pub captcha: CaptchaFeature,
@@ -62,7 +62,7 @@ pub struct RevoltFeatures {
 }
 
 /// # Limits For Users
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct LimitsConfig {
     /// Global Limits
     pub global: GlobalLimits,
@@ -73,7 +73,7 @@ pub struct LimitsConfig {
 }
 
 /// # Legal links
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct LegalLinks {
     /// Terms of Service URL
     pub terms_of_service: String,
@@ -84,7 +84,7 @@ pub struct LegalLinks {
 }
 
 /// # Global limits
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct GlobalLimits {
     /// max group size
     group_size: i64,
@@ -110,7 +110,7 @@ pub struct GlobalLimits {
 }
 
 /// # User Limits
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct UserLimits {
     /// Max Outgoing Friend Requests
     pub outgoing_friend_requests: i64,
@@ -154,7 +154,7 @@ impl UserLimits {
 }
 
 /// # Build Information
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct BuildInformation {
     /// Commit Hash
     pub commit_sha: String,
@@ -169,7 +169,7 @@ pub struct BuildInformation {
 }
 
 /// # Server Configuration
-#[derive(Serialize, JsonSchema, Debug)]
+#[derive(Serialize, Debug)]
 pub struct RevoltConfig {
     /// Revolt API Version
     pub revolt: String,
@@ -188,7 +188,6 @@ pub struct RevoltConfig {
 /// # Query Node
 ///
 /// Fetch the server configuration for this Revolt instance.
-#[openapi(tag = "Core")]
 #[get("/")]
 pub async fn root() -> Result<Json<RevoltConfig>> {
     let config = config().await;

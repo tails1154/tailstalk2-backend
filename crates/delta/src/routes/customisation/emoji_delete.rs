@@ -13,7 +13,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Delete Emoji
 ///
 /// Delete an emoji by its id.
-#[openapi(tag = "Emojis")]
 #[delete("/emoji/<emoji_id>")]
 pub async fn delete_emoji(
     db: &State<Database>,

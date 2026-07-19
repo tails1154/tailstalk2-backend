@@ -11,7 +11,6 @@ use rocket::State;
 /// # Fetch Mutual Friends, Servers, Groups and DMs
 ///
 /// Retrieve a list of mutual friends, servers, groups and DMs with another user.
-#[openapi(tag = "Relationships")]
 #[get("/<target>/mutual")]
 pub async fn mutual(
     db: &State<Database>,

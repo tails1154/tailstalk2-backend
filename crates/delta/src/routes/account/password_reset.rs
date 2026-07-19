@@ -11,7 +11,6 @@ use revolt_result::Result;
 /// # Password Reset
 ///
 /// Confirm password reset and change the password.
-#[openapi(tag = "Account")]
 #[patch("/reset_password", data = "<data>")]
 pub async fn password_reset(
     db: &State<Database>,

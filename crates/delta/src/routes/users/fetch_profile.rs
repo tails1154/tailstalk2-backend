@@ -12,7 +12,6 @@ use rocket::{serde::json::Json, State};
 /// Retrieve a user's profile data.
 ///
 /// Will fail if you do not have permission to access the other user's profile.
-#[openapi(tag = "User Information")]
 #[get("/<target>/profile")]
 pub async fn profile(
     db: &State<Database>,

@@ -10,7 +10,6 @@ use rocket_empty::EmptyResponse;
 /// # Add Reaction to Message
 ///
 /// React to a given message.
-#[openapi(tag = "Interactions")]
 #[put("/<target>/messages/<msg>/reactions/<emoji>")]
 pub async fn react_message(
     db: &State<Database>,

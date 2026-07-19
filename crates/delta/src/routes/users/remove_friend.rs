@@ -8,7 +8,6 @@ use rocket::State;
 /// # Deny Friend Request / Remove Friend
 ///
 /// Denies another user's friend request or removes an existing friend.
-#[openapi(tag = "Relationships")]
 #[delete("/<target>/friend")]
 pub async fn remove(
     db: &State<Database>,

@@ -12,7 +12,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Deletes a webhook
 ///
 /// Deletes a webhook
-#[openapi(tag = "Webhooks")]
 #[delete("/<webhook_id>")]
 pub async fn webhook_delete(
     db: &State<Database>,

@@ -14,7 +14,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Create Role
 ///
 /// Creates a new server role.
-#[openapi(tag = "Server Permissions")]
 #[post("/<target>/roles", data = "<data>")]
 pub async fn create(
     db: &State<Database>,

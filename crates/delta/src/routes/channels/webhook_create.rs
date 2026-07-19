@@ -16,7 +16,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Creates a webhook
 ///
 /// Creates a webhook which 3rd party platforms can use to send messages
-#[openapi(tag = "Webhooks")]
 #[post("/<channel_id>/webhooks", data = "<data>")]
 pub async fn create_webhook(
     db: &State<Database>,

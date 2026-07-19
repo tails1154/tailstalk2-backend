@@ -9,7 +9,6 @@ use validator::Validate;
 /// # Edit Bot
 ///
 /// Edit bot details by its id.
-#[openapi(tag = "Bots")]
 #[patch("/<bot_id>", data = "<data>")]
 pub async fn edit_bot(
     db: &State<Database>,

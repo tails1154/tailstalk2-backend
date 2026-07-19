@@ -10,7 +10,7 @@ use rocket::{serde::json::Json, State};
 use serde::{Deserialize, Serialize};
 
 /// # Query Parameters
-#[derive(Deserialize, JsonSchema, FromForm)]
+#[derive(Deserialize, FromForm)]
 pub struct OptionsQueryMembers {
     /// String to search for
     query: String,
@@ -20,7 +20,7 @@ pub struct OptionsQueryMembers {
 }
 
 /// # Query members by name
-#[derive(Serialize, JsonSchema)]
+#[derive(Serialize)]
 pub struct MemberQueryResponse {
     /// List of members
     members: Vec<v0::Member>,
@@ -31,7 +31,6 @@ pub struct MemberQueryResponse {
 /// # Query members by name
 ///
 /// Query members by a given name, this API is not stable and will be removed in the future.
-#[openapi(tag = "Server Members")]
 #[get("/<target>/members_experimental_query?<options..>")]
 pub async fn member_experimental_query(
     db: &State<Database>,

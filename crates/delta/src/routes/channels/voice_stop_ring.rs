@@ -13,7 +13,6 @@ use rocket_empty::EmptyResponse;
 /// You must be in the call to use this endpoint, returns NotConnected otherwise.
 /// Only valid in DM/Group channels, will return NoEffect in servers.
 /// Returns NotFound if the user is not in the dm/group channel
-#[openapi(tag = "Voice")]
 #[put("/<target>/end_ring/<target_user>")]
 pub async fn stop_ring(
     db: &State<Database>,

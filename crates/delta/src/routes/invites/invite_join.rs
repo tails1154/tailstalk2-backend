@@ -6,7 +6,6 @@ use rocket::{serde::json::Json, State};
 /// # Join Invite
 ///
 /// Join an invite by its ID
-#[openapi(tag = "Invites")]
 #[post("/<target>")]
 pub async fn join(
     db: &State<Database>,

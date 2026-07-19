@@ -19,7 +19,6 @@ use validator::Validate;
 /// # Send Message
 ///
 /// Sends a message to the given channel.
-#[openapi(tag = "Messaging")]
 #[post("/<target>/messages", data = "<data>")]
 pub async fn message_send(
     db: &State<Database>,

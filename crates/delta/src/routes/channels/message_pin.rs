@@ -13,7 +13,6 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Pins a message
 ///
 /// Pins a message by its id.
-#[openapi(tag = "Messaging")]
 #[post("/<target>/messages/<msg>/pin")]
 pub async fn message_pin(
     db: &State<Database>,

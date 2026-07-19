@@ -8,7 +8,6 @@ use rocket::State;
 /// # Block User
 ///
 /// Block another user by their id.
-#[openapi(tag = "Relationships")]
 #[put("/<target>/block")]
 pub async fn block(
     db: &State<Database>,

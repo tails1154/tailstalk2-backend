@@ -10,7 +10,6 @@ use rocket_empty::EmptyResponse;
 /// # Delete Bot
 ///
 /// Delete a bot by its id.
-#[openapi(tag = "Bots")]
 #[delete("/<bot_id>")]
 pub async fn delete_bot(
     db: &State<Database>,

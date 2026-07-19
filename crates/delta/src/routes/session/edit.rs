@@ -10,7 +10,6 @@ use rocket::State;
 /// # Edit Session
 ///
 /// Edit current session information.
-#[openapi(tag = "Session")]
 #[patch("/<id>", data = "<data>")]
 pub async fn edit(
     db: &State<Database>,

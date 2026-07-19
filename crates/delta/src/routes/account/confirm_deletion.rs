@@ -10,7 +10,6 @@ use rocket_empty::EmptyResponse;
 /// # Confirm Account Deletion
 ///
 /// Schedule an account for deletion by confirming the received token.
-#[openapi(tag = "Account")]
 #[put("/delete", data = "<data>")]
 pub async fn confirm_deletion(
     db: &State<Database>,

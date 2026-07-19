@@ -17,7 +17,6 @@ use rocket::State;
 /// # Login
 ///
 /// Login to an account.
-#[openapi(tag = "Session")]
 #[post("/login", data = "<data>")]
 pub async fn login(
     db: &State<Database>,

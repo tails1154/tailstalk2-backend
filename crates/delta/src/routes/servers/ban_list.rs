@@ -12,7 +12,6 @@ use rocket::State;
 /// # Fetch Bans
 ///
 /// Fetch all bans on a server.
-#[openapi(tag = "Server Members")]
 #[get("/<target>/bans")]
 pub async fn list(
     db: &State<Database>,

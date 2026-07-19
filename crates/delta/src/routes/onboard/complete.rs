@@ -15,7 +15,7 @@ use validator::Validate;
 pub static RE_USERNAME: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\p{L}|[\d_.-])+$").unwrap());
 
 /// # New User Data
-#[derive(Validate, Serialize, Deserialize, JsonSchema)]
+#[derive(Validate, Serialize, Deserialize)]
 pub struct DataOnboard {
     /// New username which will be used to identify the user on the platform
     #[validate(length(min = 2, max = 32), regex = "RE_USERNAME")]
@@ -25,7 +25,6 @@ pub struct DataOnboard {
 /// # Complete Onboarding
 ///
 /// This sets a new username, completes onboarding and allows a user to start using Revolt.
-#[openapi(tag = "Onboarding")]
 #[post("/complete", data = "<data>")]
 pub async fn complete(
     db: &State<Database>,

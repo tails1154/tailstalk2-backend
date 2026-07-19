@@ -4,7 +4,7 @@ use rocket::serde::json::Json;
 use serde::Serialize;
 
 /// # Onboarding Status
-#[derive(Serialize, JsonSchema)]
+#[derive(Serialize)]
 pub struct DataHello {
     /// Whether onboarding is required
     onboarding: bool,
@@ -13,7 +13,6 @@ pub struct DataHello {
 /// # Check Onboarding Status
 ///
 /// This will tell you whether the current account requires onboarding or whether you can continue to send requests as usual. You may skip calling this if you're restoring an existing session.
-#[openapi(tag = "Onboarding")]
 #[get("/hello")]
 pub async fn hello(_session: Session, user: Option<User>) -> Json<DataHello> {
     Json(DataHello {

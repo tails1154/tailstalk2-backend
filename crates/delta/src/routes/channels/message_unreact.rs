@@ -13,7 +13,6 @@ use rocket_empty::EmptyResponse;
 /// Remove your own, someone else's or all of a given reaction.
 ///
 /// Requires `ManageMessages` if changing others' reactions.
-#[openapi(tag = "Interactions")]
 #[delete("/<target>/messages/<msg>/reactions/<emoji>?<options..>")]
 pub async fn unreact_message(
     db: &State<Database>,

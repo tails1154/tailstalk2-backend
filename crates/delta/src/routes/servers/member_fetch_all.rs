@@ -10,7 +10,6 @@ use rocket::{serde::json::Json, State};
 /// # Fetch Members
 ///
 /// Fetch all server members.
-#[openapi(tag = "Server Members")]
 #[get("/<target>/members?<options..>")]
 pub async fn fetch_all(
     db: &State<Database>,
