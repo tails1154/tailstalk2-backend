@@ -1,4 +1,5 @@
-FROM alpine:3.21
+FROM debian:bookworm-slim
+
 RUN apk add --no-cache ca-certificates tzdata
 COPY revolt-delta /usr/local/bin/revolt-delta
 RUN chmod +x /usr/local/bin/revolt-delta
