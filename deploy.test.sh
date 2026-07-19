@@ -3,12 +3,12 @@ set -eou pipefail
 
 cd "$(dirname "$0")"
 
-echo "=== Building revolt-delta ==="
-cargo build --release -p revolt-delta -vv 2>&1
+echo "=== Building revolt-delta (debug) ==="
+cargo build -p revolt-delta 2>&1
 
 echo "=== Copying binary ==="
 mkdir -p deploy
-cp target/release/revolt-delta deploy/revolt-delta
+cp target/debug/revolt-delta deploy/revolt-delta
 scp -P 1699 deploy/revolt-delta tails1154.com:/home/tails1154/stoat/backend/deploy/revolt-delta
 
 echo "=== Building Docker image ==="

@@ -7,7 +7,7 @@ use tokio::time::sleep;
 use iso8601_timestamp::Timestamp;
 use revolt_database::{
     util::{email::normalise_email, password::assert_safe},
-    Database, EmailVerification, Lockout, MFATicket,
+    Database, Lockout, MFATicket,
 };
 use revolt_models::v0;
 use revolt_result::{create_error, Result};
@@ -40,11 +40,6 @@ pub async fn login(
                 .fetch_account_by_normalised_email(&email_normalised)
                 .await?
             {
-                // Make sure the account has been verified
-                if let EmailVerification::Pending { .. } = account.verification {
-                    return Err(create_error!(UnverifiedAccount));
-                }
-
                 // Make sure password has not been compromised
                 assert_safe(&password).await?;
 

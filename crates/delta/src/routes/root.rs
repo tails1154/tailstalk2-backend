@@ -200,7 +200,7 @@ pub async fn root() -> Result<Json<RevoltConfig>> {
                 enabled: !config.api.security.captcha.hcaptcha_key.is_empty(),
                 key: config.api.security.captcha.hcaptcha_sitekey.clone(),
             },
-            email: !config.api.smtp.host.is_empty(),
+            email: false,
             invite_only: config.api.registration.invite_only,
             autumn: Feature {
                 enabled: !config.hosts.autumn.is_empty(),

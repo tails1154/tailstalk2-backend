@@ -6,14 +6,13 @@ use revolt_rocket_okapi::{
     request::{OpenApiFromRequest, RequestHeaderInput},
     revolt_okapi::openapi3::{MediaType, Parameter, ParameterValue},
 };
-use rocket::{http::Status, request::FromRequest, Request, State};
+use rocket::{http::Status, request::{FromRequest, Outcome}, Request, State};
 use rocket::serde::json::Json;
 use schemars::schema::SchemaObject;
 use serde::Serialize;
+use std::sync::LazyLock;
 
-pub(crate) struct AdminUser;
-
-static ADMIN_HASH: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+static ADMIN_HASH: LazyLock<String> = LazyLock::new(|| {
     let content = include_str!("../../../../../admin.toml");
     for line in content.lines() {
         if let Some(value) = line.strip_prefix("password_hash = ") {
@@ -23,6 +22,8 @@ static ADMIN_HASH: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     }
     panic!("password_hash not found in admin.toml");
 });
+
+pub(crate) struct AdminUser;
 
 fn verify_admin_auth(auth_header: Option<&str>) -> bool {
     let Some(header) = auth_header else {
@@ -49,13 +50,13 @@ fn verify_admin_auth(auth_header: Option<&str>) -> bool {
 impl<'r> FromRequest<'r> for AdminUser {
     type Error = revolt_result::Error;
 
-    async fn from_request(request: &'r Request<'_>) -> rocket::request::Outcome<Self, Self::Error> {
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let auth_header = request.headers().get_one("Authorization");
 
         if verify_admin_auth(auth_header) {
-            rocket::request::Outcome::Success(AdminUser)
+            Outcome::Success(AdminUser)
         } else {
-            rocket::request::Outcome::Error((
+            Outcome::Error((
                 Status::Unauthorized,
                 revolt_result::create_error!(InvalidSession),
             ))
@@ -88,13 +89,20 @@ impl<'r> OpenApiFromRequest<'r> for AdminUser {
             name: "Authorization".to_string(),
             location: "header".to_string(),
             required: true,
-            description: Some("HTTP Basic Auth credentials (username:password base64 encoded)".to_string()),
+            description: Some("Basic auth".to_string()),
             deprecated: false,
             allow_empty_value: false,
             value: ParameterValue::Content { content },
             extensions: schemars::Map::new(),
         }))
     }
+}
+
+/// Simple test endpoint - no auth required
+#[openapi(tag = "Admin")]
+#[get("/test")]
+pub async fn _admin_test() -> Json<&'static str> {
+    Json("admin test ok")
 }
 
 #[derive(Serialize, JsonSchema, Debug)]
