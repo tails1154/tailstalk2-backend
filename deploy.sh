@@ -8,9 +8,10 @@ cargo build --release -p revolt-delta -vv 2>&1
 
 echo "=== Copying binary ==="
 mkdir -p deploy
-cp target/release/revolt-delta deploy/revolt-delta
+scp -P 1699 target/release/revolt-delta deploy/revolt-delta tails1154.com:/home/tails1154/stoat/backend/target/release/revolt-delta
 
 echo "=== Building Docker image ==="
+ssh -p 1699 tails1154.com <<EOF
 docker build -t revolt-delta:local -f deploy/Dockerfile deploy/
 
 echo "=== Updating compose to use local image ==="
@@ -35,5 +36,5 @@ else:
 
 echo "=== Restarting API service ==="
 docker compose -f ../compose.yml up -d api
-
+EOF
 echo "=== Done ==="
