@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo "=== Building revolt-delta ==="
-cargo build --release -p revolt-delta 2>&1
+cargo build --release -p revolt-delta --verbose 2>&1
 
 echo "=== Copying binary ==="
 mkdir -p deploy
