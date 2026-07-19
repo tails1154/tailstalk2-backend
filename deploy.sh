@@ -12,6 +12,8 @@ scp -P 1699 target/release/revolt-delta deploy/revolt-delta tails1154.com:/home/
 
 echo "=== Building Docker image ==="
 ssh -p 1699 tails1154.com <<EOF
+cd /home/tails1154/stoat/backend
+echo "======"
 docker build -t revolt-delta:local -f deploy/Dockerfile deploy/
 
 echo "=== Updating compose to use local image ==="
@@ -35,6 +37,8 @@ else:
 "
 
 echo "=== Restarting API service ==="
-docker compose -f ../compose.yml up -d api
+cd /home/tails1154/stoat
+docker compose down
+docker compose up -d
 EOF
 echo "=== Done ==="
