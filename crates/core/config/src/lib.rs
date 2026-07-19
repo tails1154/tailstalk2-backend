@@ -151,6 +151,7 @@ pub struct Hosts {
 #[derive(Deserialize, Debug, Clone)]
 pub struct ApiRegistration {
     pub invite_only: bool,
+    pub email_verification: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]

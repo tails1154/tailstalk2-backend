@@ -33,6 +33,10 @@ worldwide = "ws://local.revolt.chat:14706"
 
 [api]
 
+
+[api.registration]
+email_verification = false
+
 [api.smtp]
 # Email server configuration for verification
 # Defaults to no email verification (host field is empty)
