@@ -11,4 +11,5 @@ venv/
 .DS_Store
 
 livekit.yml
+admin.toml
 .idea

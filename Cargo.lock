@@ -7343,6 +7343,7 @@ name = "revolt-delta"
 version = "0.14.1"
 dependencies = [
  "async-channel",
+ "base64 0.21.7",
  "bitfield",
  "chrono",
  "dashmap",
@@ -7375,6 +7376,7 @@ dependencies = [
  "rocket_cors",
  "rocket_empty",
  "rocket_prometheus",
+ "rust-argon2",
  "schemars",
  "serde",
  "serde_json",
