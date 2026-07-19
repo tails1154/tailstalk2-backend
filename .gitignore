@@ -7,7 +7,7 @@ target
 .env
 .venv/
 venv/
-
+deploy/*
 .vercel
 .DS_Store
 
