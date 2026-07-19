@@ -3,11 +3,11 @@
 cd "$(dirname "$0")"
 
 echo "=== Building revolt-delta ==="
-#cargo build --release -p revolt-delta -vv 2>&1
+cargo build --release -p revolt-delta -vv 2>&1
 
 echo "=== Copying binary ==="
 mkdir -p deploy
-#scp -P 1699 target/release/revolt-delta deploy/revolt-delta tails1154.com:/home/tails1154/stoat/backend/target/release/revolt-delta
+scp -P 1699 target/release/revolt-delta deploy/revolt-delta tails1154.com:/home/tails1154/stoat/backend/target/release/revolt-delta
 
 echo "=== Building Docker image ==="
 ssh -p 1699 tails1154.com <<EOF

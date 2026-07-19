@@ -59,8 +59,7 @@ pub async fn create_account(
     };
 
     // Create account
-    let auto_verify = !config().await.api.registration.email_verification;
-    let account = Account::new(db, data.email, data.password, auto_verify).await?;
+    let account = Account::new(db, data.email, data.password, false).await?;
 
     // Use up the invite
     if let Some(mut invite) = invite {
