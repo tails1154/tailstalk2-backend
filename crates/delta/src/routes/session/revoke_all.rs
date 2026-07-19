@@ -8,6 +8,7 @@ use rocket_empty::EmptyResponse;
 /// # Delete All Sessions
 ///
 /// Delete all active sessions, optionally including current one.
+#[openapi(tag = "Session")]
 #[delete("/all?<revoke_self>")]
 pub async fn revoke_all(
     db: &State<Database>,

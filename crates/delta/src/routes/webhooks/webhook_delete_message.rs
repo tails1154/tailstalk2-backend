@@ -6,6 +6,7 @@ use rocket_empty::EmptyResponse;
 /// # Deletes a webhook message
 ///
 /// Deletes a message sent by a webhook
+#[openapi(tag = "Webhooks")]
 #[delete("/<webhook_id>/<token>/<message_id>")]
 pub async fn webhook_delete_message(
     db: &State<Database>,

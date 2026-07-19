@@ -13,6 +13,7 @@ use validator::Validate;
 /// # Executes a webhook
 ///
 /// Executes a webhook and sends a message
+#[openapi(tag = "Webhooks")]
 #[post("/<webhook_id>/<token>", data = "<data>")]
 pub async fn webhook_execute(
     db: &State<Database>,

@@ -15,6 +15,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// Creates an invite to this channel.
 ///
 /// Channel must be a `TextChannel`.
+#[openapi(tag = "Channel Invites")]
 #[post("/<target>/invites")]
 pub async fn create_invite(
     db: &State<Database>,

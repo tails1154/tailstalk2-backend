@@ -7,6 +7,7 @@ use revolt_database::{Database, Account, ValidatedTicket};
 /// # Delete Account
 ///
 /// Request to have an account deleted.
+#[openapi(tag = "Account")]
 #[post("/delete")]
 pub async fn delete_account(
     db: &State<Database>,

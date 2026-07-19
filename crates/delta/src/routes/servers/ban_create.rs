@@ -21,6 +21,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Ban User
 ///
 /// Ban a user by their id.
+#[openapi(tag = "Server Members")]
 #[put("/<server>/bans/<target>", data = "<data>")]
 pub async fn ban(
     db: &State<Database>,

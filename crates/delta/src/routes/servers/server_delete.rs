@@ -15,6 +15,7 @@ use rocket_empty::EmptyResponse;
 /// # Delete / Leave Server
 ///
 /// Deletes a server if owner otherwise leaves.
+#[openapi(tag = "Server Information")]
 #[delete("/<target>?<options..>")]
 pub async fn delete(
     db: &State<Database>,

@@ -13,6 +13,7 @@ use rocket_empty::EmptyResponse;
 /// # Change Password
 ///
 /// Change the current account password.
+#[openapi(tag = "Account")]
 #[patch("/change/password", data = "<data>")]
 pub async fn change_password(
     db: &State<Database>,

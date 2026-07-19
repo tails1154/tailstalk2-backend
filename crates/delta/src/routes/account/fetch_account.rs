@@ -8,6 +8,7 @@ use revolt_result::Result;
 /// # Fetch Account
 ///
 /// Fetch account information from the current session.
+#[openapi(tag = "Account")]
 #[get("/")]
 pub async fn fetch_account(account: Account) -> Result<Json<v0::AccountInfo>> {
     Ok(Json(account.into()))

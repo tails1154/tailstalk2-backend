@@ -14,6 +14,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Edit Role
 ///
 /// Edit a role by its id.
+#[openapi(tag = "Server Permissions")]
 #[patch("/<target>/roles/<role_id>", data = "<data>", rank = 1)]
 pub async fn edit(
     db: &State<Database>,

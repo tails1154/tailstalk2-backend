@@ -10,6 +10,7 @@ use rocket::State;
 /// # Generate TOTP Secret
 ///
 /// Generate a new secret for TOTP.
+#[openapi(tag = "MFA")]
 #[post("/totp")]
 pub async fn totp_generate_secret(
     db: &State<Database>,

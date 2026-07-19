@@ -17,6 +17,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Close Channel
 ///
 /// Deletes a server channel, leaves a group or closes a group.
+#[openapi(tag = "Channel Information")]
 #[delete("/<target>?<options..>")]
 pub async fn delete(
     db: &State<Database>,

@@ -8,6 +8,7 @@ use rocket::State;
 /// # Unblock User
 ///
 /// Unblock another user by their id.
+#[openapi(tag = "Relationships")]
 #[delete("/<target>/block")]
 pub async fn unblock(
     db: &State<Database>,

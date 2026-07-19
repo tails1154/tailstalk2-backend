@@ -15,6 +15,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Set Default Permission
 ///
 /// Sets permissions for the default role in this server.
+#[openapi(tag = "Server Permissions")]
 #[put("/<target>/permissions/default", data = "<data>", rank = 1)]
 pub async fn set_default_server_permissions(
     db: &State<Database>,

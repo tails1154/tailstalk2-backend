@@ -13,6 +13,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Edit Emoji
 ///
 /// Edit an emoji by its id.
+#[openapi(tag = "Emojis")]
 #[patch("/emoji/<emoji_id>", data = "<data>")]
 pub async fn edit_emoji(
     db: &State<Database>,

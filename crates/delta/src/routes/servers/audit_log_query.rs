@@ -11,6 +11,7 @@ use validator::Validate;
 /// # Audit Log Query
 ///
 /// Queries a server's audit logs.
+#[openapi(tag = "Audit Logs")]
 #[get("/<target>/audit_logs?<options..>")]
 pub async fn query(
     db: &State<Database>,

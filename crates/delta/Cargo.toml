@@ -51,8 +51,12 @@ lettre = { workspace = true }
 
 rocket = { workspace = true, features = ["json"] }
 rocket_cors = { workspace = true }
-rocket_empty = { workspace = true }
+rocket_empty = { workspace = true, features = ["schema"] }
 rocket_prometheus = { workspace = true }
+
+# spec generation
+schemars = { workspace = true }
+revolt_rocket_okapi = { workspace = true, features = ["swagger"] }
 
 # rabbit
 lapin = { workspace = true, features = ["tokio"] }
@@ -60,17 +64,18 @@ lapin = { workspace = true, features = ["tokio"] }
 # core
 revolt-config = { workspace = true }
 revolt-database = { workspace = true, features = [
-    "rocket",
+    "rocket-impl",
     "redis-is-patched",
     "voice",
 ] }
 revolt-models = { workspace = true, features = [
+    "schemas",
     "validator",
     "rocket",
 ] }
 revolt-presence = { workspace = true }
-revolt-result = { workspace = true, features = ["rocket"] }
-revolt-permissions = { workspace = true }
+revolt-result = { workspace = true, features = ["rocket", "okapi"] }
+revolt-permissions = { workspace = true, features = ["schemas"] }
 revolt-ratelimits = { workspace = true, features = ["rocket"] }
 
 # voice

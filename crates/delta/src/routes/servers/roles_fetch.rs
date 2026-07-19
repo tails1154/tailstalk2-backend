@@ -10,6 +10,7 @@ use rocket::{serde::json::Json, State};
 /// # Fetch Role
 ///
 /// Fetch a role by its id.
+#[openapi(tag = "Server Permissions")]
 #[get("/<target>/roles/<role_id>")]
 pub async fn fetch(
     db: &State<Database>,

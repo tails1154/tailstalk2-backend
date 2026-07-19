@@ -12,6 +12,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Create New Emoji
 ///
 /// Create an emoji by its Autumn upload id.
+#[openapi(tag = "Emojis")]
 #[put("/emoji/<emoji_id>", data = "<data>")]
 pub async fn create_emoji(
     db: &State<Database>,

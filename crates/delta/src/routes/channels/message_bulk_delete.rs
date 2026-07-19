@@ -20,6 +20,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// This will always require `ManageMessages` permission regardless of whether you own the message or not.
 ///
 /// Messages must have been sent within the past 1 week.
+#[openapi(tag = "Messaging")]
 #[delete("/<target>/messages/bulk", data = "<options>", rank = 1)]
 pub async fn bulk_delete_messages(
     db: &State<Database>,

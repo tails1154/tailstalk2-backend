@@ -12,6 +12,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Delete Message
 ///
 /// Delete a message you've sent or one you have permission to delete.
+#[openapi(tag = "Messaging")]
 #[delete("/<target>/messages/<msg>", rank = 2)]
 pub async fn delete(
     db: &State<Database>,

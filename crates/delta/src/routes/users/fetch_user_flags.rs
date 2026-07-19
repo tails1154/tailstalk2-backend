@@ -6,6 +6,7 @@ use rocket::{serde::json::Json, State};
 /// # Fetch User Flags
 ///
 /// Retrieve a user's flags.
+#[openapi(tag = "User Information")]
 #[get("/<target>/flags")]
 pub async fn fetch_user_flags(
     db: &State<Database>,

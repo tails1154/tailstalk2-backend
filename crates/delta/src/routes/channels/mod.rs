@@ -1,4 +1,4 @@
-
+use revolt_rocket_okapi::revolt_okapi::openapi3::OpenApi;
 use rocket::Route;
 
 mod channel_ack;
@@ -29,8 +29,8 @@ mod voice_stop_ring;
 mod webhook_create;
 mod webhook_fetch_all;
 
-pub fn routes() -> Vec<Route> {
-    routes![
+pub fn routes() -> (Vec<Route>, OpenApi) {
+    openapi_get_routes_spec![
         channel_ack::ack,
         channel_fetch::fetch,
         members_fetch::fetch_members,

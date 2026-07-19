@@ -13,6 +13,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Delete Role
 ///
 /// Delete a server role by its id.
+#[openapi(tag = "Server Permissions")]
 #[delete("/<target>/roles/<role_id>")]
 pub async fn delete(
     db: &State<Database>,

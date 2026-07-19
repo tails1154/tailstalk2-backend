@@ -11,6 +11,7 @@ use validator::Validate;
 /// # Edits a webhook
 ///
 /// Edits a webhook
+#[openapi(tag = "Webhooks")]
 #[patch("/<webhook_id>", data = "<data>")]
 pub async fn webhook_edit(
     db: &State<Database>,

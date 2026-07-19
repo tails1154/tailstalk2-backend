@@ -10,6 +10,7 @@ use rocket::{serde::json::Json, State};
 /// # Gets a webhook
 ///
 /// Gets a webhook
+#[openapi(tag = "Webhooks")]
 #[get("/<webhook_id>")]
 pub async fn webhook_fetch(
     db: &State<Database>,

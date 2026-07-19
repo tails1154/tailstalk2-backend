@@ -8,6 +8,7 @@ use rocket::State;
 /// # Fetch Public Bot
 ///
 /// Fetch details of a public (or owned) bot by its id.
+#[openapi(tag = "Bots")]
 #[get("/<target>/invite")]
 pub async fn fetch_public_bot(
     db: &State<Database>,

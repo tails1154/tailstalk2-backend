@@ -7370,10 +7370,12 @@ dependencies = [
  "revolt-presence",
  "revolt-ratelimits",
  "revolt-result",
+ "revolt_rocket_okapi",
  "rocket",
  "rocket_cors",
  "rocket_empty",
  "rocket_prometheus",
+ "schemars",
  "serde",
  "serde_json",
  "tokio",
@@ -7817,6 +7819,8 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97a55000e1ef5f4a9b20ae3d9de2a0bd22620c78ebd1aa568776ae12276125a6"
 dependencies = [
+ "revolt_okapi",
+ "revolt_rocket_okapi",
  "rocket",
 ]
 

@@ -15,6 +15,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Set Role Permission
 ///
 /// Sets permissions for the specified role in the server.
+#[openapi(tag = "Server Permissions")]
 #[put("/<target>/permissions/<role_id>", data = "<data>", rank = 2)]
 pub async fn set_role_permission(
     db: &State<Database>,

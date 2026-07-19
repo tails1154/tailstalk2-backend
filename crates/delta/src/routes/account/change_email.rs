@@ -11,6 +11,7 @@ use revolt_result::{Result, create_error};
 /// # Change Email
 ///
 /// Change the associated account email.
+#[openapi(tag = "Account")]
 #[patch("/change/email", data = "<data>")]
 pub async fn change_email(
     db: &State<Database>,

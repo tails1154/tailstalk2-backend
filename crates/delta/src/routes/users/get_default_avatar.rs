@@ -54,6 +54,7 @@ impl revolt_rocket_okapi::response::OpenApiResponderInner for CachedFile {
 /// # Fetch Default Avatar
 ///
 /// This returns a default avatar based on the given id.
+#[openapi(tag = "User Information")]
 #[get("/<target>/default_avatar")]
 pub async fn default_avatar(target: String) -> CachedFile {
     CachedFile((

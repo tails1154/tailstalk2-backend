@@ -9,6 +9,7 @@ use rocket_empty::EmptyResponse;
 /// Create a new Web Push subscription.
 ///
 /// If an existing subscription exists on this session, it will be removed.
+#[openapi(tag = "Web Push")]
 #[post("/subscribe", data = "<data>")]
 pub async fn subscribe(
     db: &State<Database>,

@@ -10,6 +10,7 @@ use rocket::{serde::json::Json, State};
 /// # Fetch Member
 ///
 /// Retrieve a member.
+#[openapi(tag = "Server Members")]
 #[get("/<server_id>/members/<member_id>?<roles>")]
 pub async fn fetch(
     db: &State<Database>,

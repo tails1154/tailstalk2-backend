@@ -8,6 +8,7 @@ use revolt_models::v0;
 /// # Verify Email
 ///
 /// Verify an email address.
+#[openapi(tag = "Account")]
 #[post("/verify/<code>")]
 pub async fn verify_email(
     db: &State<Database>,

@@ -1,4 +1,4 @@
-
+use revolt_rocket_okapi::revolt_okapi::openapi3::OpenApi;
 use rocket::Route;
 
 mod audit_log_query;
@@ -26,8 +26,8 @@ mod server_delete;
 mod server_edit;
 mod server_fetch;
 
-pub fn routes() -> Vec<Route> {
-    routes![
+pub fn routes() -> (Vec<Route>, OpenApi) {
+    openapi_get_routes_spec![
         server_create::create_server,
         server_delete::delete,
         server_fetch::fetch,

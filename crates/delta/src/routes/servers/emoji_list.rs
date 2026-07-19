@@ -10,6 +10,7 @@ use rocket::{serde::json::Json, State};
 /// # Fetch Server Emoji
 ///
 /// Fetch all emoji on a server.
+#[openapi(tag = "Server Customisation")]
 #[get("/<target>/emojis")]
 pub async fn list_emoji(
     db: &State<Database>,

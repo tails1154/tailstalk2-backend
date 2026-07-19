@@ -9,7 +9,7 @@ use validator::Validate;
 use rocket::{serde::json::Json, State};
 
 /// # Report Data
-#[derive(Validate, Deserialize)]
+#[derive(Validate, Deserialize, JsonSchema)]
 pub struct DataReportContent {
     /// Content being reported
     content: ReportedContent,
@@ -22,6 +22,7 @@ pub struct DataReportContent {
 /// # Report Content
 ///
 /// Report a piece of content to the moderation team.
+#[openapi(tag = "User Safety")]
 #[post("/report", data = "<data>")]
 pub async fn report_content(
     db: &State<Database>,

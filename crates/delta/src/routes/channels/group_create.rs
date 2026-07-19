@@ -9,6 +9,7 @@ use validator::Validate;
 /// # Create Group
 ///
 /// Create a new group channel.
+#[openapi(tag = "Groups")]
 #[post("/create", data = "<data>")]
 pub async fn create_group(
     db: &State<Database>,

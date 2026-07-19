@@ -12,6 +12,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Unban user
 ///
 /// Remove a user's ban.
+#[openapi(tag = "Server Members")]
 #[delete("/<server>/bans/<target>")]
 pub async fn unban(
     db: &State<Database>,

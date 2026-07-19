@@ -10,6 +10,7 @@ use rocket_empty::EmptyResponse;
 /// # Acknowledge Message
 ///
 /// Lets the server and all other clients know that we've seen this message id in this channel.
+#[openapi(tag = "Messaging")]
 #[put("/<target>/ack/<message>")]
 pub async fn ack(
     db: &State<Database>,

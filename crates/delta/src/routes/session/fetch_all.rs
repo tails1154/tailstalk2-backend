@@ -9,6 +9,7 @@ use rocket::State;
 /// # Fetch Sessions
 ///
 /// Fetch all sessions associated with this account.
+#[openapi(tag = "Session")]
 #[get("/all")]
 pub async fn fetch_all(
     db: &State<Database>,

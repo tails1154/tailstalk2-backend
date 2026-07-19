@@ -27,6 +27,7 @@ use crate::util::audit_log_reason::AuditLogReason;
 /// # Edit Member
 ///
 /// Edit a member by their id.
+#[openapi(tag = "Server Members")]
 #[patch("/<server_id>/members/<member_id>", data = "<data>")]
 pub async fn edit(
     db: &State<Database>,

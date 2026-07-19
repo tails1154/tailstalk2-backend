@@ -8,6 +8,7 @@ use validator::Validate;
 /// # Create Bot
 ///
 /// Create a new Revolt bot.
+#[openapi(tag = "Bots")]
 #[post("/create", data = "<info>")]
 pub async fn create_bot(
     db: &State<Database>,

@@ -13,7 +13,7 @@ use serde_json::Value;
 use ulid::Ulid;
 use validator::Validate;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubUser {
     name: Option<String>,
     email: Option<String>,
@@ -35,19 +35,19 @@ pub struct GithubUser {
     received_events_url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubRepositorySecurityAndAnalysisStatus {
     status: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubRepositorySecurityAndAnalysis {
     advanced_security: GithubRepositorySecurityAndAnalysisStatus,
     secret_scanning: GithubRepositorySecurityAndAnalysisStatus,
     secret_scanning_push_protection: GithubRepositorySecurityAndAnalysisStatus,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubRepositoryLicense {
     key: Option<String>,
     name: Option<String>,
@@ -56,7 +56,7 @@ pub struct GithubRepositoryLicense {
     node_id: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubRepositoryCodeOfConduct {
     key: String,
     name: String,
@@ -65,7 +65,7 @@ pub struct GithubRepositoryCodeOfConduct {
     html_url: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubRepositoryPermissions {
     admin: Option<bool>,
     maintain: Option<bool>,
@@ -74,7 +74,7 @@ pub struct GithubRepositoryPermissions {
     pull: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubRepository {
     id: u32,
     node_id: String,
@@ -165,7 +165,7 @@ pub struct GithubRepository {
     security_and_analysis: Option<GithubRepositorySecurityAndAnalysis>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct CommitAuthor {
     date: Option<String>,
     email: Option<String>,
@@ -173,7 +173,7 @@ pub struct CommitAuthor {
     username: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubCommit {
     added: Option<Vec<String>>,
     author: CommitAuthor,
@@ -187,7 +187,7 @@ pub struct GithubCommit {
     tree_id: String,
     url: String,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubReactions {
     #[serde(rename = "+1")]
     plus_one: u32,
@@ -203,7 +203,7 @@ pub struct GithubReactions {
     url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubComment {
     author_association: String,
     body: String,
@@ -220,7 +220,7 @@ pub struct GithubComment {
     user: GithubUser,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubDiscussionComment {
     #[serde(flatten)]
     comment: GithubComment,
@@ -229,7 +229,7 @@ pub struct GithubDiscussionComment {
     repository_url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubDiscussionCategory {
     id: u32,
     node_id: String,
@@ -243,7 +243,7 @@ pub struct GithubDiscussionCategory {
     is_answerable: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubDiscussion {
     repository_url: String,
     category: GithubDiscussionCategory,
@@ -268,7 +268,7 @@ pub struct GithubDiscussion {
     timeline_url: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case", tag = "action")]
 #[allow(clippy::large_enum_variant)]
 pub enum GithubDiscussionEvent {
@@ -281,7 +281,7 @@ pub enum GithubDiscussionEvent {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case", tag = "action")]
 #[allow(clippy::large_enum_variant)]
 pub enum DiscussionCommentEvent {
@@ -293,7 +293,7 @@ pub enum DiscussionCommentEvent {
     Edited {},
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubMilestone {
     url: String,
     html_url: String,
@@ -313,7 +313,7 @@ pub struct GithubMilestone {
     due_on: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubLinkedPullRequest {
     merged_at: Option<Value>,
     diff_url: Option<String>,
@@ -321,7 +321,7 @@ pub struct GithubLinkedPullRequest {
     patch_url: Option<String>,
     url: Option<String>,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubAppPermissions {
     issues: Option<String>,
     checks: Option<String>,
@@ -330,7 +330,7 @@ pub struct GithubAppPermissions {
     deployments: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubApp {
     id: u32,
     slug: String,
@@ -351,7 +351,7 @@ pub struct GithubApp {
     pem: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct GithubIssue {
     id: u32,
     node_id: String,
@@ -387,7 +387,7 @@ pub struct GithubIssue {
     title: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case", tag = "action")]
 #[allow(clippy::large_enum_variant)]
 pub enum IssueCommentEvent {
@@ -399,7 +399,7 @@ pub enum IssueCommentEvent {
     Edited {},
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case", tag = "action")]
 #[allow(clippy::large_enum_variant)]
 pub enum IssuesEvent {
@@ -617,7 +617,7 @@ pub struct Event {
     repository: GithubRepository,
 }
 
-#[derive(Debug)]
+#[derive(Debug, JsonSchema)]
 pub struct EventHeader<'r>(pub &'r str);
 
 impl std::ops::Deref for EventHeader<'_> {
@@ -758,6 +758,7 @@ fn convert_event(data: &str, event_name: &str) -> Result<Event> {
 /// # Executes a webhook specific to github
 ///
 /// Executes a webhook specific to github and sends a message containing the relevant info about the event
+#[openapi(tag = "Webhooks")]
 #[post("/<webhook_id>/<token>/github", data = "<data>")]
 pub async fn webhook_execute_github(
     db: &State<Database>,

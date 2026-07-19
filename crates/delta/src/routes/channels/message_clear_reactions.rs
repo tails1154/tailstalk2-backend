@@ -12,6 +12,7 @@ use rocket_empty::EmptyResponse;
 /// Remove your own, someone else's or all of a given reaction.
 ///
 /// Requires `ManageMessages` permission.
+#[openapi(tag = "Interactions")]
 #[delete("/<target>/messages/<msg>/reactions")]
 pub async fn clear_reactions(
     db: &State<Database>,
