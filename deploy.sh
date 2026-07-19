@@ -11,7 +11,7 @@ scp -P 1699 target/release/revolt-delta deploy/revolt-delta tails1154.com:/home/
 
 echo "=== Building Docker image ==="
 ssh -p 1699 tails1154.com <<EOF
-cd /home/tails1154/stoat/backend
+cd /home/tails1154/stoat/backend/
 echo "======"
 docker build -t revolt-delta:local -f deploy/Dockerfile deploy/
 
