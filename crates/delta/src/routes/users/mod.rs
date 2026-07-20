@@ -16,6 +16,7 @@ mod open_dm;
 mod remove_friend;
 mod send_friend_request;
 mod unblock_user;
+mod warnings;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
@@ -27,6 +28,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         change_username::change_username,
         get_default_avatar::default_avatar,
         fetch_profile::profile,
+        warnings::get_warnings,
         // Direct Messaging
         fetch_dms::direct_messages,
         open_dm::open_dm,
