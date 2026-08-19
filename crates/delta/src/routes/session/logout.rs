@@ -2,7 +2,10 @@
 //! POST /session/logout
 use revolt_database::{Database, Session};
 use revolt_result::Result;
-use rocket::State;
+use rocket::{
+    http::{Cookie, CookieJar},
+    State,
+};
 use rocket_empty::EmptyResponse;
 
 /// # Logout
@@ -10,8 +13,15 @@ use rocket_empty::EmptyResponse;
 /// Delete current session.
 #[openapi(tag = "Session")]
 #[post("/logout")]
-pub async fn logout(db: &State<Database>, session: Session) -> Result<EmptyResponse> {
-    session.delete(db).await.map(|_| EmptyResponse)
+pub async fn logout(
+    db: &State<Database>,
+    cookies: &CookieJar<'_>,
+    session: Session,
+) -> Result<EmptyResponse> {
+    session.delete(db).await.map(|_| {
+        cookies.remove(Cookie::build("__Host-tailstalk_session").path("/").build());
+        EmptyResponse
+    })
 }
 
 #[cfg(test)]
@@ -26,7 +36,8 @@ mod tests {
         let mut harness = TestHarness::new().await;
         let (_, session, _) = harness.new_user().await;
 
-        let res = harness.client
+        let res = harness
+            .client
             .post("/auth/session/logout")
             .header(Header::new("X-Session-Token", session.token))
             .dispatch()
@@ -35,14 +46,20 @@ mod tests {
         assert_eq!(res.status(), Status::NoContent);
         drop(res);
         assert!(matches!(
-            harness.db
+            harness
+                .db
                 .fetch_session(&session.id)
                 .await
-                .unwrap_err().error_type,
+                .unwrap_err()
+                .error_type,
             ErrorType::UnknownUser
         ));
 
-        let event = harness.wait_for_event(&format!("{}!", &session.user_id), |evt| matches!(evt, EventV1::DeleteSession { .. })).await;
+        let event = harness
+            .wait_for_event(&format!("{}!", &session.user_id), |evt| {
+                matches!(evt, EventV1::DeleteSession { .. })
+            })
+            .await;
         if let EventV1::DeleteSession {
             user_id,
             session_id,
@@ -59,7 +76,8 @@ mod tests {
     async fn fail_invalid_session() {
         let harness = TestHarness::new().await;
 
-        let res = harness.client
+        let res = harness
+            .client
             .post("/auth/session/logout")
             .header(Header::new("X-Session-Token", "invalid"))
             .dispatch()

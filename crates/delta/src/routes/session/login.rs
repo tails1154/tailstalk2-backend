@@ -3,16 +3,20 @@
 use std::ops::Add;
 use std::time::Duration;
 
-use tokio::time::sleep;
 use iso8601_timestamp::Timestamp;
 use revolt_database::{
+    mongodb::bson::doc,
     util::{email::normalise_email, password::assert_safe},
     Database, Lockout, MFATicket,
 };
 use revolt_models::v0;
 use revolt_result::{create_error, Result};
 use rocket::serde::json::Json;
-use rocket::State;
+use rocket::{
+    http::{Cookie, CookieJar, SameSite},
+    State,
+};
+use tokio::time::sleep;
 
 /// # Login
 ///
@@ -21,10 +25,14 @@ use rocket::State;
 #[post("/login", data = "<data>")]
 pub async fn login(
     db: &State<Database>,
+    cookies: &CookieJar<'_>,
     data: Json<v0::DataLogin>,
 ) -> Result<Json<v0::ResponseLogin>> {
     // Random jitter from 0-1000ms
-    sleep(Duration::from_millis((rand::random::<f32>() * 1000.) as u64)).await;
+    sleep(Duration::from_millis(
+        (rand::random::<f32>() * 1000.) as u64,
+    ))
+    .await;
 
     let (account, name) = match data.into_inner() {
         v0::DataLogin::Email {
@@ -152,9 +160,21 @@ pub async fn login(
     }
 
     // Create and return a new session
-    Ok(Json(v0::ResponseLogin::Success(
-        account.create_session(db, name).await?.into(),
-    )))
+    let session = account.create_session(db, name).await?;
+
+    // OAuth authorization is commonly opened by a browser redirect, which
+    // cannot attach X-Session-Token. Keep the token out of URLs while making
+    // same-origin browser navigation authenticated.
+    cookies.add(
+        Cookie::build(("__Host-tailstalk_session", session.token.clone()))
+            .http_only(true)
+            .secure(true)
+            .same_site(SameSite::Lax)
+            .path("/")
+            .build(),
+    );
+
+    Ok(Json(v0::ResponseLogin::Success(session.into())))
 }
 
 #[cfg(test)]

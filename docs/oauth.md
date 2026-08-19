@@ -13,8 +13,12 @@ For this deployment:
 - Userinfo: `https://tails1154.com:9961/api/oauth/userinfo`
 - Applications: `https://tails1154.com:9961/api/oauth/applications/@me`
 
-The authorization page requires the existing Tailstalk session (`X-Session-Token`)
-and never asks an OAuth client for a Tailstalk password.
+The authorization page uses the existing Tailstalk session. Normal Tailstalk login
+sets a Secure, HttpOnly, SameSite=Lax `__Host-tailstalk_session` cookie, so a browser
+can navigate to the authorization URL without putting a session token in a query
+parameter. API clients may continue using `X-Session-Token`. OAuth never asks an
+OAuth client for a Tailstalk password. If a browser has an older session from before
+this cookie was introduced, log in once again to establish the cookie.
 
 ## Register an application
 
