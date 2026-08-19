@@ -155,6 +155,10 @@ pub async fn message_send(
     } else {
         true
     };
+    let xp_server_id = query
+        .server_ref()
+        .clone()
+        .map(|server| server.id.clone());
 
     // Create the message
     let author: v0::User = user.clone().into(db, Some(&user)).await;
@@ -188,7 +192,7 @@ pub async fn message_send(
         )
         .await?;
 
-    crate::routes::users::xp::award_message(db, &user.id).await;
+    crate::routes::users::xp::award_message(db, &user.id, xp_server_id.as_deref()).await;
 
     Ok(Json(message.into_model(Some(model_user), model_member)))
 }

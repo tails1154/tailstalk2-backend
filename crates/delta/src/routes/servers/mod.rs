@@ -26,6 +26,7 @@ mod server_delete;
 mod server_edit;
 mod server_fetch;
 mod vanity_create;
+use crate::routes::users::xp;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
@@ -54,5 +55,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         emoji_list::list_emoji,
         roles_edit_positions::edit_role_ranks,
         audit_log_query::query,
+        xp::fetch_settings,
+        xp::update_settings,
     ]
 }
