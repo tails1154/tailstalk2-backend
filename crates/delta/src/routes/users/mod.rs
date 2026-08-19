@@ -17,6 +17,7 @@ mod remove_friend;
 mod send_friend_request;
 mod unblock_user;
 mod warnings;
+pub(crate) mod xp;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
@@ -29,6 +30,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         get_default_avatar::default_avatar,
         fetch_profile::profile,
         warnings::get_warnings,
+        xp::fetch,
         // Direct Messaging
         fetch_dms::direct_messages,
         open_dm::open_dm,

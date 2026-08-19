@@ -173,8 +173,7 @@ pub async fn message_send(
         .as_ref()
         .map(|member| member.clone().into_owned().into());
 
-    Ok(Json(
-        Message::create_from_api(
+    let message = Message::create_from_api(
             db,
             Some(amqp),
             channel,
@@ -187,9 +186,11 @@ pub async fn message_send(
             permissions.has_channel_permission(ChannelPermission::SendEmbeds),
             allow_mentions,
         )
-        .await?
-        .into_model(Some(model_user), model_member),
-    ))
+        .await?;
+
+    crate::routes::users::xp::award_message(db, &user.id).await;
+
+    Ok(Json(message.into_model(Some(model_user), model_member)))
 }
 
 #[cfg(test)]
