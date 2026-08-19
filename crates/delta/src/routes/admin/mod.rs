@@ -1,10 +1,11 @@
 use revolt_rocket_okapi::revolt_okapi::openapi3::OpenApi;
 use rocket::Route;
 
-mod auth;
+pub(crate) mod auth;
 mod reports;
 mod stats;
 mod users;
+mod whatsnew;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
@@ -19,5 +20,10 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         users::admin_warn_user,
         users::admin_clear_warnings,
         users::admin_delete_warning,
+        whatsnew::admin_get_whatsnew,
+        whatsnew::admin_set_whatsnew,
+        crate::routes::discovery::admin_list,
+        crate::routes::discovery::approve,
+        crate::routes::discovery::deny,
     ]
 }

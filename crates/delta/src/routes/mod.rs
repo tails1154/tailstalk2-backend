@@ -8,6 +8,7 @@ mod admin;
 mod bots;
 mod channels;
 mod customisation;
+pub(crate) mod discovery;
 mod invites;
 mod onboard;
 mod policy;
@@ -18,6 +19,7 @@ mod servers;
 mod sync;
 mod users;
 mod webhooks;
+mod whatsnew_public;
 mod account;
 mod session;
 mod mfa;
@@ -29,7 +31,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
         mount_endpoints_and_merged_docs! {
             rocket, "/".to_owned(), settings,
             "/" => (vec![], custom_openapi_spec()),
-            "" => openapi_get_routes_spec![root::root],
+            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot],
             "/admin" => admin::routes(),
             "/users" => users::routes(),
             "/bots" => bots::routes(),
@@ -51,7 +53,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
         mount_endpoints_and_merged_docs! {
             rocket, "/".to_owned(), settings,
             "/" => (vec![], custom_openapi_spec()),
-            "" => openapi_get_routes_spec![root::root],
+            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot],
             "/admin" => admin::routes(),
             "/users" => users::routes(),
             "/bots" => bots::routes(),
