@@ -10,7 +10,7 @@ if [[ "$#" -ne 0 ]]; then
 fi
 
 curl --fail-with-body --silent --show-error \
-  -X POST "$api_url/oauth/applications" \
+  -X POST "$api_url/api/oauth/applications" \
   -H "Content-Type: application/json" \
   -H "X-Session-Token: $TAILSTALK_SESSION_TOKEN" \
   --data-binary @-

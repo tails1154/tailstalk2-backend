@@ -7,18 +7,18 @@ implicit and resource-owner-password grants are not supported.
 
 For this deployment:
 
-- Authorization: `https://tails1154.com:9961/oauth/authorize`
-- Token: `https://tails1154.com:9961/oauth/token`
-- Revocation: `https://tails1154.com:9961/oauth/revoke`
-- Userinfo: `https://tails1154.com:9961/oauth/userinfo`
-- Applications: `https://tails1154.com:9961/oauth/applications/@me`
+- Authorization: `https://tails1154.com:9961/api/oauth/authorize`
+- Token: `https://tails1154.com:9961/api/oauth/token`
+- Revocation: `https://tails1154.com:9961/api/oauth/revoke`
+- Userinfo: `https://tails1154.com:9961/api/oauth/userinfo`
+- Applications: `https://tails1154.com:9961/api/oauth/applications/@me`
 
 The authorization page requires the existing Tailstalk session (`X-Session-Token`)
 and never asks an OAuth client for a Tailstalk password.
 
 ## Register an application
 
-An authenticated user creates an application with `POST /oauth/applications`:
+An authenticated user creates an application with `POST /api/oauth/applications`:
 
 ```json
 {
@@ -32,8 +32,8 @@ An authenticated user creates an application with `POST /oauth/applications`:
 Send JSON with the existing `X-Session-Token` header. The response contains a
 `client_id` and the client secret once. Store the secret in a server-side
 secret manager; it is hashed before storage and is never returned by listing.
-Use `POST /oauth/applications/{client_id}/rotate-secret` to rotate it. Revoke
-an application with `POST /oauth/applications/{client_id}/revoke`; this also
+Use `POST /api/oauth/applications/{client_id}/rotate-secret` to rotate it. Revoke
+an application with `POST /api/oauth/applications/{client_id}/revoke`; this also
 revokes its access and refresh tokens.
 
 If the dashboard cannot keep a secret confidential, set `public` to `true` and
@@ -42,7 +42,7 @@ use PKCE S256. Public clients are required to send a PKCE challenge.
 ## Authorization request
 
 ```text
-GET /oauth/authorize?
+GET /api/oauth/authorize?
   response_type=code&
   client_id=CLIENT_ID&
   redirect_uri=https%3A%2F%2Fobsidian.tails1154.com%2Fauth%2Fcallback&
@@ -92,7 +92,7 @@ SHA-256 digests are stored.
 - `permissions`: effective server and channel permissions calculated by the
   existing Stoat permission engine.
 
-`GET /oauth/userinfo` requires `Authorization: Bearer ACCESS_TOKEN`. It returns
+`GET /api/oauth/userinfo` requires `Authorization: Bearer ACCESS_TOKEN`. It returns
 only fields covered by the token’s granted scopes. Server data is restricted to
 the authenticated user’s current memberships:
 
