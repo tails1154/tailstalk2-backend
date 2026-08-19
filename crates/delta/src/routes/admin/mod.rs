@@ -26,5 +26,8 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         crate::routes::discovery::admin_list,
         crate::routes::discovery::approve,
         crate::routes::discovery::deny,
+        crate::routes::feature_requests::admin_get,
+        crate::routes::feature_requests::approve,
+        crate::routes::feature_requests::deny,
     ]
 }
