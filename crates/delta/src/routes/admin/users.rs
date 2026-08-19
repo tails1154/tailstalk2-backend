@@ -18,6 +18,7 @@ pub struct AdminUserInfo {
     pub flags: Option<i32>,
     pub suspended_until: Option<String>,
     pub privileged: bool,
+    pub badges: i32,
     pub warnings: Vec<AdminWarning>,
 }
 
@@ -35,6 +36,17 @@ pub struct WarnUserData {
 #[derive(Deserialize, JsonSchema, Debug)]
 pub struct SuspendUserData {
     pub hours: i64,
+}
+
+#[derive(Deserialize, JsonSchema, Debug)]
+pub struct BanUserData {
+    pub reason: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema, Debug)]
+pub struct BadgeUpdateData {
+    pub badge: i32,
+    pub enabled: bool,
 }
 
 impl AdminWarning {
@@ -70,8 +82,50 @@ fn user_from_doc(doc: &bson::Document) -> Option<AdminUserInfo> {
         flags: doc.get_i32("flags").ok(),
         suspended_until: suspended,
         privileged: doc.get_bool("privileged").unwrap_or(false),
+        badges: doc.get_i32("badges").unwrap_or(0),
         warnings,
     })
+}
+
+/// # Set User Badge
+///
+/// Grant or remove one of the TailsTalk 2 custom badges.
+#[openapi(tag = "Admin")]
+#[post("/users/<id>/badge", data = "<data>")]
+pub async fn admin_set_badge(
+    _admin: AdminUser,
+    db: &State<Database>,
+    id: String,
+    data: Json<BadgeUpdateData>,
+) -> Result<Json<serde_json::Value>> {
+    const ALLOWED_BADGES: [i32; 3] = [2048, 4096, 8192];
+    if !ALLOWED_BADGES.contains(&data.badge) {
+        return Err(revolt_result::create_error!(InvalidOperation));
+    }
+
+    match db.inner() {
+        Database::MongoDb(mongo) => {
+            let current = mongo
+                .col::<bson::Document>("users")
+                .find_one(doc! { "_id": &id })
+                .await
+                .map_err(|_| revolt_result::create_error!(InternalError))?
+                .and_then(|user| user.get_i32("badges").ok())
+                .unwrap_or(0);
+            let badges = if data.enabled {
+                current | data.badge
+            } else {
+                current & !data.badge
+            };
+            mongo
+                .col::<bson::Document>("users")
+                .update_one(doc! { "_id": &id }, doc! { "$set": { "badges": badges } })
+                .await
+                .map_err(|_| revolt_result::create_error!(InternalError))?;
+            Ok(Json(serde_json::json!({ "badges": badges })))
+        }
+        _ => Ok(Json(serde_json::json!({ "badges": 0 }))),
+    }
 }
 
 /// # Search Users
@@ -114,27 +168,39 @@ pub async fn admin_search_users(
 ///
 /// Ban a user permanently.
 #[openapi(tag = "Admin")]
-#[post("/users/<id>/ban")]
+#[post("/users/<id>/ban", data = "<data>")]
 pub async fn admin_ban_user(
     _admin: AdminUser,
     db: &State<Database>,
     id: String,
+    data: Option<Json<BanUserData>>,
 ) -> Result<Json<serde_json::Value>> {
     let far_future = iso8601_timestamp::Timestamp::now_utc()
         + iso8601_timestamp::Duration::days(36500i64);
 
+    let reason = data.as_ref().and_then(|d| d.reason.clone());
+
     match db.inner() {
         Database::MongoDb(mongo) => {
+            let mut set = doc! {
+                "flags": 5i32,
+                "disabled": true,
+                "suspended_until": bson::to_bson(&far_future).unwrap_or_default(),
+            };
+            if let Some(ref r) = reason {
+                set.insert("admin_ban_reason", r.as_str());
+            }
             mongo
                 .col::<bson::Document>("users")
+                .update_one(doc! { "_id": &id }, doc! { "$set": set })
+                .await
+                .map_err(|_| revolt_result::create_error!(InternalError))?;
+
+            mongo
+                .col::<bson::Document>("accounts")
                 .update_one(
                     doc! { "_id": &id },
-                    doc! {
-                        "$set": {
-                            "flags": 5i32,
-                            "suspended_until": bson::to_bson(&far_future).unwrap_or_default(),
-                        }
-                    },
+                    doc! { "$set": { "disabled": true } },
                 )
                 .await
                 .map_err(|_| revolt_result::create_error!(InternalError))?;
@@ -162,9 +228,21 @@ pub async fn admin_unban_user(
                 .update_one(
                     doc! { "_id": &id },
                     doc! {
-                        "$set": { "flags": 0i32 },
-                        "$unset": { "suspended_until": "" as &str },
+                        "$set": { "flags": 0i32, "disabled": false },
+                        "$unset": {
+                            "suspended_until": "" as &str,
+                            "admin_ban_reason": "" as &str,
+                        },
                     },
+                )
+                .await
+                .map_err(|_| revolt_result::create_error!(InternalError))?;
+
+            mongo
+                .col::<bson::Document>("accounts")
+                .update_one(
+                    doc! { "_id": &id },
+                    doc! { "$set": { "disabled": false } },
                 )
                 .await
                 .map_err(|_| revolt_result::create_error!(InternalError))?;

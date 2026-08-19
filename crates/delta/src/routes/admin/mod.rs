@@ -14,6 +14,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         reports::admin_resolve_report,
         reports::admin_dismiss_report,
         users::admin_search_users,
+        users::admin_set_badge,
         users::admin_ban_user,
         users::admin_unban_user,
         users::admin_suspend_user,

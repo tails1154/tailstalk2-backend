@@ -192,6 +192,12 @@ auto_derived!(
         ReservedRelevantJokeBadge1 = 512,
         /// Low resolution troll face
         ReservedRelevantJokeBadge2 = 1024,
+        /// TailsTalk 2 XP Champion
+        XPChampion = 2048,
+        /// TailsTalk 2 Community Helper
+        CommunityHelper = 4096,
+        /// TailsTalk 2 Supporter
+        TailsTalkSupporter = 8192,
     }
 
     /// User flag enum
