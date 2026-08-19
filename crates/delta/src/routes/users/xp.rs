@@ -77,7 +77,7 @@ pub(crate) async fn read_settings(db: &Database, server_id: &str) -> XPSettings 
                 xp_per_message: entry
                     .get_i64("xp_per_message")
                     .unwrap_or(MESSAGE_XP)
-                    .clamp(0, 1000),
+                    .clamp(0, 20),
             })
             .unwrap_or_default(),
         _ => XPSettings::default(),
@@ -116,7 +116,7 @@ pub async fn update_settings(
         xp_per_message: data
             .xp_per_message
             .unwrap_or(current.xp_per_message)
-            .clamp(0, 1000),
+            .clamp(0, 20),
     };
 
     if let Database::MongoDb(mongo) = db.inner() {
