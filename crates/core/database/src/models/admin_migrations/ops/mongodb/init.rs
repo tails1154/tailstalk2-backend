@@ -113,6 +113,18 @@ pub async fn create_database(db: &MongoDb) {
         .await
         .expect("Failed to create mfa_tickets collection.");
 
+    for collection in [
+        "oauth_applications",
+        "oauth_consent_requests",
+        "oauth_authorization_codes",
+        "oauth_access_tokens",
+        "oauth_refresh_tokens",
+    ] {
+        db.create_collection(collection)
+            .await
+            .unwrap_or_else(|_| panic!("Failed to create {collection} collection."));
+    }
+
     db.run_command(doc! {
         "createIndexes": "users",
         "indexes": [
@@ -303,6 +315,20 @@ pub async fn create_database(db: &MongoDb) {
     })
     .await
     .expect("Failed to create audit_logs index");
+
+    for (collection, indexes) in [
+        ("oauth_applications", doc! { "key": { "owner_id": 1_i32 }, "name": "owner_id" }),
+        ("oauth_consent_requests", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+        ("oauth_authorization_codes", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+        ("oauth_access_tokens", doc! { "key": { "token_hash": 1_i32 }, "name": "token_hash", "unique": true }),
+        ("oauth_access_tokens", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+        ("oauth_refresh_tokens", doc! { "key": { "token_hash": 1_i32 }, "name": "token_hash", "unique": true }),
+        ("oauth_refresh_tokens", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+    ] {
+        db.run_command(doc! { "createIndexes": collection, "indexes": [indexes] })
+            .await
+            .unwrap_or_else(|_| panic!("Failed to create {collection} index."));
+    }
 
     db.run_command(doc! {
         "createIndexes": "audit_logs",

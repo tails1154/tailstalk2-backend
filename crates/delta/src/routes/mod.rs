@@ -24,6 +24,7 @@ mod whatsnew_public;
 mod account;
 mod session;
 mod mfa;
+mod oauth;
 
 pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
     let settings = OpenApiSettings::default();
@@ -44,6 +45,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
             "/auth/account" => account::routes(),
             "/auth/session" => session::routes(),
             "/auth/mfa" => mfa::routes(),
+            "/oauth" => openapi_get_routes_spec![oauth::authorize, oauth::authorize_consent, oauth::token, oauth::revoke, oauth::userinfo, oauth::applications_me, oauth::application_create, oauth::application_rotate_secret, oauth::application_revoke],
             "/onboard" => onboard::routes(),
             "/policy" => policy::routes(),
             "/push" => push::routes(),
@@ -66,6 +68,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
             "/auth/account" => account::routes(),
             "/auth/session" => session::routes(),
             "/auth/mfa" => mfa::routes(),
+            "/oauth" => openapi_get_routes_spec![oauth::authorize, oauth::authorize_consent, oauth::token, oauth::revoke, oauth::userinfo, oauth::applications_me, oauth::application_create, oauth::application_rotate_secret, oauth::application_revoke],
             "/onboard" => onboard::routes(),
             "/policy" => policy::routes(),
             "/push" => push::routes(),

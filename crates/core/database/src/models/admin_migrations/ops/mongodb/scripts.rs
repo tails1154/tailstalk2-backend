@@ -26,7 +26,7 @@ struct MigrationInfo {
     revision: i32,
 }
 
-pub const LATEST_REVISION: i32 = 52; // MUST BE +1 to last migration
+pub const LATEST_REVISION: i32 = 53; // MUST BE +1 to last migration
 
 pub async fn migrate_database(db: &MongoDb) {
     let migrations = db.col::<Document>("migrations");
@@ -1528,6 +1528,30 @@ pub async fn run_migrations(db: &MongoDb, revision: i32) -> i32 {
             .await
             .expect("Failed to create audit_logs index");
     };
+
+    if revision <= 52 {
+        info!("Running migration [revision 52 / 19-08-2026]: Add OAuth 2.1 collections and indexes.");
+        for collection in [
+            "oauth_applications",
+            "oauth_consent_requests",
+            "oauth_authorization_codes",
+            "oauth_access_tokens",
+            "oauth_refresh_tokens",
+        ] {
+            let _ = db.db().create_collection(collection).await;
+        }
+        for (collection, indexes) in [
+            ("oauth_applications", doc! { "key": { "owner_id": 1_i32 }, "name": "owner_id" }),
+            ("oauth_consent_requests", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+            ("oauth_authorization_codes", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+            ("oauth_access_tokens", doc! { "key": { "token_hash": 1_i32 }, "name": "token_hash", "unique": true }),
+            ("oauth_access_tokens", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+            ("oauth_refresh_tokens", doc! { "key": { "token_hash": 1_i32 }, "name": "token_hash", "unique": true }),
+            ("oauth_refresh_tokens", doc! { "key": { "expires_at": 1_i32 }, "name": "expires_at_ttl", "expireAfterSeconds": 0 }),
+        ] {
+            db.db().run_command(doc! { "createIndexes": collection, "indexes": [indexes] }).await.expect("Failed to create OAuth indexes.");
+        }
+    }
 
     // Reminder to update LATEST_REVISION when adding new migrations.
     LATEST_REVISION.max(revision)
