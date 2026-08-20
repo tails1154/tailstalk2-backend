@@ -62,5 +62,6 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         onboarding::update,
         xp::fetch_settings,
         xp::update_settings,
+        xp::leaderboard,
     ]
 }

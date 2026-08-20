@@ -3,6 +3,7 @@ use revolt_database::{
     util::{permissions::DatabasePermissionQuery, reference::Reference},
     Database, User,
 };
+use futures::StreamExt;
 use revolt_permissions::{calculate_server_permissions, ChannelPermission};
 use revolt_result::{create_error, Result};
 use rocket::{serde::json::Json, State};
@@ -38,6 +39,14 @@ pub struct XPResponse {
     pub xp: i64,
     pub level: i64,
     pub next_level_xp: i64,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct XPLeaderboardEntry {
+    pub rank: i64,
+    pub user_id: String,
+    pub xp: i64,
+    pub level: i64,
 }
 
 fn response(user_id: String, xp: i64) -> XPResponse {
@@ -137,6 +146,46 @@ pub async fn update_settings(
     }
 
     Ok(Json(settings))
+}
+
+/// Fetch the XP leaderboard for members of a server.
+#[openapi(tag = "Server Information")]
+#[get("/<target>/xp/leaderboard")]
+pub async fn leaderboard(
+    db: &State<Database>,
+    user: User,
+    target: Reference<'_>,
+) -> Result<Json<Vec<XPLeaderboardEntry>>> {
+    let server = target.as_server(db).await?;
+    db.fetch_member(&server.id, &user.id).await?;
+    let member_ids = db
+        .fetch_all_members(&server.id)
+        .await?
+        .into_iter()
+        .map(|member| member.id.user)
+        .collect::<Vec<_>>();
+    let entries = match db.inner() {
+        Database::MongoDb(mongo) if !member_ids.is_empty() => mongo
+            .col::<Document>("user_xp")
+            .find(doc! { "_id": { "$in": &member_ids } })
+            .sort(doc! { "xp": -1_i32 })
+            .limit(100)
+            .await
+            .map_err(|_| create_error!(InternalError))?
+            .filter_map(|item| async move { item.ok() })
+            .filter_map(|item| async move {
+                Some((item.get_str("_id").ok()?.to_owned(), item.get_i64("xp").unwrap_or(0)))
+            })
+            .collect::<Vec<_>>()
+            .await,
+        _ => Vec::new(),
+    };
+    Ok(Json(entries.into_iter().enumerate().map(|(index, (user_id, xp))| XPLeaderboardEntry {
+        rank: index as i64 + 1,
+        user_id,
+        xp,
+        level: xp.div_euclid(100) + 1,
+    }).collect()))
 }
 
 /// Fetch a user's XP and level.
