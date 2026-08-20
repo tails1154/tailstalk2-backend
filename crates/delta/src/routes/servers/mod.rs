@@ -3,6 +3,7 @@ use rocket::Route;
 
 mod audit_log_query;
 mod analytics;
+mod backup;
 mod ban_create;
 mod ban_list;
 mod ban_remove;
@@ -15,6 +16,7 @@ mod member_fetch;
 mod member_fetch_all;
 mod member_remove;
 mod onboarding;
+mod page;
 mod permissions_set;
 mod permissions_set_default;
 mod roles_create;
@@ -58,8 +60,12 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         roles_edit_positions::edit_role_ranks,
         audit_log_query::query,
         analytics::fetch,
+        backup::export,
+        backup::restore,
         onboarding::fetch,
         onboarding::update,
+        page::fetch,
+        page::update,
         xp::fetch_settings,
         xp::update_settings,
         xp::leaderboard,
