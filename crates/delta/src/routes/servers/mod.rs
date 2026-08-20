@@ -16,7 +16,6 @@ mod member_fetch;
 mod member_fetch_all;
 mod member_remove;
 mod onboarding;
-mod page;
 mod permissions_set;
 mod permissions_set_default;
 mod roles_create;
@@ -64,8 +63,6 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         backup::restore,
         onboarding::fetch,
         onboarding::update,
-        page::fetch,
-        page::update,
         xp::fetch_settings,
         xp::update_settings,
         xp::leaderboard,

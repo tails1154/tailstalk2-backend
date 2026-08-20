@@ -14,7 +14,10 @@ pub async fn ack_channel(user: &str, channel: &str, message: &str, amqp: &AMQP) 
         .await
         .to_internal_error()?;
 
-    if old.is_none() || old.unwrap() == message {
+    // The Redis value is the latest message to acknowledge. Trigger the
+    // debounced worker whenever this value advances; only identical repeated
+    // acknowledgements can be ignored.
+    if old.as_deref() != Some(message) {
         amqp.process_ack(user, Some(channel), None)
             .await
             .to_internal_error()?;
