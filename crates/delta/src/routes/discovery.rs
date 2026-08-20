@@ -148,6 +148,12 @@ pub async fn submit_bot(db: &State<Database>, user: User, bot_id: String) -> Res
         return Err(create_error!(NotFound));
     }
     let bot_user = db.fetch_user(&bot.id).await?;
+    // Discovery submissions opt bots into public invitations.
+    if !bot.public {
+        let mut bot = bot.clone();
+        bot.update(db, PartialBot { public: Some(true), ..Default::default() }, vec![])
+            .await?;
+    }
     let entry = DiscoveryListing {
         id: Ulid::new().to_string(),
         kind: "bot".to_string(),
@@ -196,7 +202,7 @@ pub async fn approve(_admin: AdminUser, db: &State<Database>, id: String) -> Res
         server.update(db, PartialServer { discoverable: Some(true), ..Default::default() }, vec![]).await?;
     } else if listing.kind == "bot" {
         let mut bot = db.fetch_bot(&listing.target_id).await?;
-        bot.update(db, PartialBot { discoverable: Some(true), ..Default::default() }, vec![]).await?;
+        bot.update(db, PartialBot { public: Some(true), discoverable: Some(true), ..Default::default() }, vec![]).await?;
     }
     Ok(Json(listing))
 }
