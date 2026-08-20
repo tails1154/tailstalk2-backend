@@ -65,6 +65,9 @@ auto_derived_partial!(
         /// Information about how this message should be interacted with
         #[serde(skip_serializing_if = "Interactions::is_default", default)]
         pub interactions: Interactions,
+        /// Poll attached to this message
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub poll: Option<Poll>,
         /// Name and / or avatar overrides for this message
         #[serde(skip_serializing_if = "Option::is_none")]
         pub masquerade: Option<Masquerade>,
@@ -169,6 +172,31 @@ auto_derived!(
         /// Can only be set to true if reactions list is of at least length 1
         #[serde(skip_serializing_if = "crate::if_false", default)]
         pub restrict_reactions: bool,
+    }
+
+    /// A native message poll.
+    pub struct Poll {
+        /// Poll question
+        pub question: String,
+        /// Available answer options
+        pub options: Vec<PollOption>,
+        /// Whether users may select more than one option
+        #[serde(default)]
+        pub multiple: bool,
+        /// Whether voting is closed
+        #[serde(default)]
+        pub closed: bool,
+        /// User IDs grouped by selected option
+        #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+        pub votes: IndexMap<String, IndexSet<String>>,
+    }
+
+    /// A poll answer option.
+    pub struct PollOption {
+        /// Stable option identifier
+        pub id: String,
+        /// Option label
+        pub text: String,
     }
 
     /// Appended Information
@@ -277,11 +305,32 @@ auto_derived!(
         pub masquerade: Option<Masquerade>,
         /// Information about how this message should be interacted with
         pub interactions: Option<Interactions>,
+        /// Poll to attach to this message
+        #[cfg_attr(feature = "validator", validate)]
+        pub poll: Option<PollCreate>,
 
         /// Bitfield of message flags
         ///
         /// https://docs.rs/revolt-models/latest/revolt_models/v0/enum.MessageFlags.html
         pub flags: Option<u32>,
+    }
+
+    /// Poll creation payload.
+    #[cfg_attr(feature = "validator", derive(Validate))]
+    pub struct PollCreate {
+        #[cfg_attr(feature = "validator", validate(length(min = 1, max = 256)))]
+        pub question: String,
+        #[cfg_attr(feature = "validator", validate(length(min = 2, max = 10)))]
+        pub options: Vec<String>,
+        pub multiple: Option<bool>,
+    }
+
+    /// Poll vote payload.
+    pub struct PollVote {
+        /// Option to toggle
+        pub option_id: String,
+        /// Whether to select or deselect the option
+        pub selected: bool,
     }
 
     /// Options for querying messages

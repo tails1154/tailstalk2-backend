@@ -3,7 +3,7 @@ use iso8601_timestamp::Timestamp;
 use revolt_config::{config, FeaturesLimits};
 use revolt_models::v0::{
     self, BulkMessageResponse, DataMessageSend, Embed, MessageAuthor, MessageFlags, MessageSort,
-    MessageWebhook, PushNotification, ReplyIntent, SendableEmbed, Text,
+    MessageWebhook, PollOption, PushNotification, ReplyIntent, SendableEmbed, Text,
 };
 use revolt_permissions::{calculate_channel_permissions, ChannelPermission, PermissionValue};
 use revolt_result::{ErrorType, Result};
@@ -70,6 +70,9 @@ auto_derived_partial!(
         /// Information about how this message should be interacted with
         #[serde(skip_serializing_if = "Interactions::is_default", default)]
         pub interactions: Interactions,
+        /// Poll attached to this message
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub poll: Option<v0::Poll>,
         /// Name and / or avatar overrides for this message
         #[serde(skip_serializing_if = "Option::is_none")]
         pub masquerade: Option<Masquerade>,
@@ -255,6 +258,7 @@ impl Default for Message {
             replies: None,
             reactions: Default::default(),
             interactions: Default::default(),
+            poll: None,
             masquerade: None,
             flags: None,
             pinned: None,
@@ -296,6 +300,7 @@ impl Message {
         if (data.content.as_ref().is_none_or(|v| v.is_empty()))
             && (data.attachments.as_ref().is_none_or(|v| v.is_empty()))
             && (data.embeds.as_ref().is_none_or(|v| v.is_empty()))
+            && data.poll.is_none()
         {
             return Err(create_error!(EmptyMessage));
         }
@@ -350,6 +355,15 @@ impl Message {
             }
         }
 
+        if let Some(poll) = &data.poll {
+            let mut options = HashSet::new();
+            if poll.options.iter().any(|option| {
+                option.trim().is_empty() || !options.insert(option.trim().to_lowercase())
+            }) {
+                return Err(create_error!(InvalidProperty));
+            }
+        }
+
         let (author_id, webhook) = match &author {
             MessageAuthor::User(user) => (user.id.clone(), None),
             MessageAuthor::Webhook(webhook) => (webhook.id.clone(), Some((*webhook).clone())),
@@ -366,6 +380,21 @@ impl Message {
                 .interactions
                 .map(|interactions| interactions.into())
                 .unwrap_or_default(),
+            poll: data.poll.map(|poll| v0::Poll {
+                question: poll.question,
+                options: poll
+                    .options
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, text)| PollOption {
+                        id: (index + 1).to_string(),
+                        text,
+                    })
+                    .collect(),
+                multiple: poll.multiple.unwrap_or(false),
+                closed: false,
+                votes: IndexMap::new(),
+            }),
             author: author_id,
             webhook: webhook.map(|w| w.into()),
             flags: data.flags,
