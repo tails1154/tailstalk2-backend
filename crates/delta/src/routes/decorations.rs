@@ -25,14 +25,7 @@ pub struct DecorationCreate {
 
 fn from_doc(value: &Document) -> Option<Decoration> {
     Some(Decoration {
-        // Older uploads were inserted with `id`, while Mongo's conventional
-        // identifier is `_id`. Accept both so existing decorations remain
-        // visible after the storage format is corrected.
-        id: value
-            .get_str("_id")
-            .or_else(|_| value.get_str("id"))
-            .ok()?
-            .to_owned(),
+        id: value.get_str("_id").ok()?.to_owned(),
         name: value.get_str("name").ok()?.to_owned(),
         image: value.get_str("image").ok()?.to_owned(),
         required_level: value.get_i64("required_level").unwrap_or(1),
@@ -117,11 +110,7 @@ pub async fn admin_create(
 #[delete("/decorations/<id>")]
 pub async fn admin_delete(_admin: AdminUser, db: &State<Database>, id: String) -> Result<()> {
     if let Database::MongoDb(mongo) = db.inner() {
-        let result = mongo
-            .col::<Document>("profile_decorations")
-            .delete_one(doc! { "$or": [{ "_id": id.clone() }, { "id": id }] })
-            .await
-            .map_err(|_| create_error!(InternalError))?;
+        let result = mongo.col::<Document>("profile_decorations").delete_one(doc! { "_id": id }).await.map_err(|_| create_error!(InternalError))?;
         if result.deleted_count == 0 { return Err(create_error!(NotFound)); }
     }
     Ok(())
