@@ -165,9 +165,6 @@ auto_derived!(
         /// Background visible on user's profile
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         pub background: Option<File>,
-        /// ID of the user's selected profile decoration
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-        pub decoration: Option<String>,
     }
 
     /// User badge bitfield
@@ -227,9 +224,6 @@ auto_derived!(
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         #[cfg_attr(feature = "validator", validate(length(min = 1, max = 128)))]
         pub background: Option<String>,
-        /// ID of the selected profile decoration
-        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-        pub decoration: Option<String>,
     }
 
     /// New user information
