@@ -172,10 +172,7 @@ impl Consumer for FcmOutboundConsumer {
         match payload.notification {
             PayloadKind::FRReceived(alert) => {
                 let name = alert.from_user.display_name.clone().unwrap_or_else(|| {
-                    format!(
-                        "{}#{}",
-                        alert.from_user.username, alert.from_user.discriminator
-                    )
+                    alert.from_user.username.clone()
                 });
 
                 let data = NotificationData::FRReceived {
@@ -194,10 +191,7 @@ impl Consumer for FcmOutboundConsumer {
 
             PayloadKind::FRAccepted(alert) => {
                 let name = alert.accepted_user.display_name.clone().unwrap_or_else(|| {
-                    format!(
-                        "{}#{}",
-                        alert.accepted_user.username, alert.accepted_user.discriminator
-                    )
+                    alert.accepted_user.username.clone()
                 });
 
                 let data = NotificationData::FRAccepted {

@@ -3,13 +3,12 @@ use std::{collections::HashSet, str::FromStr, time::Duration};
 use crate::{
     events::client::EventV1,
     util::email::{email_templates, send_email},
-    Database, File, RatelimitEvent, AMQP,
+    Database, File, AMQP,
 };
 
 use futures::future::join_all;
 use iso8601_timestamp::Timestamp;
 use once_cell::sync::Lazy;
-use rand::seq::SliceRandom;
 use regex::{Regex, RegexBuilder};
 use revolt_config::{config, FeaturesLimits};
 use revolt_models::v0::{self, UserBadges, UserFlags};
@@ -184,7 +183,7 @@ impl Default for User {
         Self {
             id: Default::default(),
             username: Default::default(),
-            discriminator: Default::default(),
+            discriminator: "0000".to_owned(),
             display_name: Default::default(),
             pronouns: Default::default(),
             avatar: Default::default(),
@@ -219,7 +218,7 @@ impl User {
 
         let mut user = User {
             id: account_id.into().unwrap_or_else(|| Ulid::new().to_string()),
-            discriminator: User::find_discriminator(db, &new_username, None).await?,
+            discriminator: "0000".to_owned(),
             username: new_username.clone(),
             last_acknowledged_policy_change: Timestamp::now_utc(),
             ..Default::default()
@@ -383,54 +382,11 @@ impl User {
 
     /// Find a free discriminator for a given username
     pub async fn find_discriminator(
-        db: &Database,
-        username: &str,
-        preferred: Option<(String, String)>,
+        _db: &Database,
+        _username: &str,
+        _preferred: Option<(String, String)>,
     ) -> Result<String> {
-        let search_space: &HashSet<String> = &DISCRIMINATOR_SEARCH_SPACE;
-        let used_discriminators: HashSet<String> = db
-            .fetch_discriminators_in_use(username)
-            .await?
-            .into_iter()
-            .collect();
-
-        let available_discriminators: Vec<&String> =
-            search_space.difference(&used_discriminators).collect();
-
-        if available_discriminators.is_empty() {
-            return Err(create_error!(UsernameTaken));
-        }
-
-        if let Some((preferred, target_id)) = preferred {
-            if available_discriminators.contains(&&preferred) {
-                return Ok(preferred);
-            } else {
-                if db
-                    .has_ratelimited(
-                        &target_id,
-                        crate::RatelimitEventType::DiscriminatorChange,
-                        Duration::from_secs(60 * 60 * 24),
-                        1,
-                    )
-                    .await?
-                {
-                    return Err(create_error!(DiscriminatorChangeRatelimited));
-                }
-
-                RatelimitEvent::create(
-                    db,
-                    target_id,
-                    crate::RatelimitEventType::DiscriminatorChange,
-                )
-                .await?;
-            }
-        }
-
-        let mut rng = rand::thread_rng();
-        Ok(available_discriminators
-            .choose(&mut rng)
-            .expect("we can assert this has an element")
-            .to_string())
+        Ok("0000".to_owned())
     }
 
     /// Update a user's username
@@ -452,14 +408,7 @@ impl User {
             self.update(
                 db,
                 PartialUser {
-                    discriminator: Some(
-                        User::find_discriminator(
-                            db,
-                            &new_username,
-                            Some((self.discriminator.to_string(), self.id.clone())),
-                        )
-                        .await?,
-                    ),
+                    discriminator: Some("0000".to_owned()),
                     username: Some(new_username),
                     ..Default::default()
                 },

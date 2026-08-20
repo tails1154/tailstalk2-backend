@@ -81,10 +81,7 @@ impl Consumer for VapidOutboundConsumer {
                 let name = alert
                     .from_user
                     .display_name
-                    .or(Some(format!(
-                        "{}#{}",
-                        alert.from_user.username, alert.from_user.discriminator
-                    )))
+                    .or(Some(alert.from_user.username.clone()))
                     .clone()
                     .ok_or_else(|| anyhow!("missing name"))?;
 
@@ -97,10 +94,7 @@ impl Consumer for VapidOutboundConsumer {
                 let name = alert
                     .accepted_user
                     .display_name
-                    .or(Some(format!(
-                        "{}#{}",
-                        alert.accepted_user.username, alert.accepted_user.discriminator
-                    )))
+                    .or(Some(alert.accepted_user.username.clone()))
                     .clone()
                     .ok_or_else(|| anyhow!("missing name"))?;
 

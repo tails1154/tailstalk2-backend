@@ -26,7 +26,7 @@ struct MigrationInfo {
     revision: i32,
 }
 
-pub const LATEST_REVISION: i32 = 53; // MUST BE +1 to last migration
+pub const LATEST_REVISION: i32 = 55; // MUST BE +1 to last migration
 
 pub async fn migrate_database(db: &MongoDb) {
     let migrations = db.col::<Document>("migrations");
@@ -1551,6 +1551,46 @@ pub async fn run_migrations(db: &MongoDb, revision: i32) -> i32 {
         ] {
             db.db().run_command(doc! { "createIndexes": collection, "indexes": [indexes] }).await.expect("Failed to create OAuth indexes.");
         }
+    }
+
+    if revision <= 53 {
+        info!("Running migration [revision 53 / 19-08-2026]: Set all user discriminators to 0000");
+
+        db.col::<Document>("users")
+            .update_many(
+                doc! {},
+                doc! { "$set": { "discriminator": "0000" } },
+            )
+            .await
+            .expect("Failed to normalize user discriminators.");
+    }
+
+    if revision <= 54 {
+        info!("Running migration [revision 54 / 19-08-2026]: Enforce unique usernames");
+
+        let _ = db
+            .db()
+            .run_command(doc! {
+                "dropIndexes": "users",
+                "index": "username"
+            })
+            .await;
+
+        db.db()
+            .run_command(doc! {
+                "createIndexes": "users",
+                "indexes": [{
+                    "key": { "username": 1_i32 },
+                    "name": "username",
+                    "unique": true,
+                    "collation": {
+                        "locale": "en",
+                        "strength": 2_i32
+                    }
+                }]
+            })
+            .await
+            .expect("Failed to enforce unique usernames.");
     }
 
     // Reminder to update LATEST_REVISION when adding new migrations.

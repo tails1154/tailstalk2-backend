@@ -2,7 +2,7 @@ use crate::Database;
 use revolt_result::Result;
 
 /// Formats a user's name depending on their optional features and location.
-/// Factors in server display names and user display names before falling back to username#discriminator.
+/// Factors in server display names and user display names before falling back to username.
 /// Passing a server in which the user is not a member will result in an Err.
 pub async fn format_display_name(
     db: &Database,
@@ -20,5 +20,5 @@ pub async fn format_display_name(
     if let Some(display) = user.display_name {
         return Ok(display);
     }
-    Ok(format!("{}#{}", user.username, user.discriminator))
+    Ok(user.username)
 }

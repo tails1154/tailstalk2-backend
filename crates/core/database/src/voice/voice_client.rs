@@ -78,7 +78,7 @@ impl VoiceClient {
         let allowed_sources = get_allowed_sources(&limits, permissions);
 
         AccessToken::with_api_key(&room.node.key, &room.node.secret)
-            .with_name(&format!("{}#{}", user.username, user.discriminator))
+            .with_name(&user.username)
             .with_identity(&user.id)
             .with_metadata(
                 &serde_json::to_string(&user.clone().into(db, None).await).to_internal_error()?,

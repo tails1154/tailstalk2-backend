@@ -16,8 +16,9 @@ pub async fn send_friend_request(
     mut user: User,
     data: Json<v0::DataSendFriendRequest>,
 ) -> Result<Json<v0::User>> {
-    if let Some((username, discriminator)) = data.username.split_once('#') {
-        let mut target = db.fetch_user_by_username(username, discriminator).await?;
+    let username = data.username.split_once('#').map_or(data.username.as_str(), |(username, _)| username);
+    if !username.is_empty() {
+        let mut target = db.fetch_user_by_username(username, "0000").await?;
 
         if user.bot.is_some() || target.bot.is_some() {
             return Err(create_error!(IsBot));
@@ -25,7 +26,5 @@ pub async fn send_friend_request(
 
         user.add_friend(db, amqp, &mut target).await?;
         Ok(Json(target.into(db, &user).await))
-    } else {
-        Err(create_error!(InvalidProperty))
-    }
+    } else { Err(create_error!(InvalidProperty)) }
 }
