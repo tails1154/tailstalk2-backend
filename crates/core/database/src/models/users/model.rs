@@ -12,7 +12,7 @@ use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use revolt_config::{config, FeaturesLimits};
 use revolt_models::v0::{self, UserBadges, UserFlags};
-use revolt_presence::filter_online;
+use revolt_presence::{filter_online, is_online};
 use revolt_result::{create_error, Result};
 use serde_json::json;
 use ulid::Ulid;
@@ -639,9 +639,21 @@ impl User {
         self.apply_options(partial.clone());
         db.update_user(&self.id, &partial, remove.clone()).await?;
 
+        let mut event_data: v0::PartialUser = partial.into();
+        event_data.online = Some(
+            is_online(&self.id).await
+                && !matches!(
+                    self.status,
+                    Some(crate::UserStatus {
+                        presence: Some(crate::Presence::Invisible),
+                        ..
+                    })
+                ),
+        );
+
         EventV1::UserUpdate {
             id: self.id.clone(),
-            data: partial.into(),
+            data: event_data,
             clear: remove.into_iter().map(|v| v.into()).collect(),
             event_id: Some(Ulid::new().to_string()),
         }
