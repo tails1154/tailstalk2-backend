@@ -9,19 +9,25 @@ pub async fn ack_channel(user: &str, channel: &str, message: &str, amqp: &AMQP) 
         .await
         .map_err(|_| create_error!(InternalError))?;
 
-    let old: Option<String> = redis
-        .getset(format!("acker:{user}+{channel}"), message)
+    let key = format!("acker:{user}+{channel}");
+    let old: Option<String> = redis.get(&key).await.to_internal_error()?;
+
+    // ULIDs sort chronologically. Do not let a delayed ACK move the pending
+    // read position backwards and resurrect an unread channel.
+    if old.as_deref().is_some_and(|old| old >= message) {
+        return Ok(());
+    }
+
+    redis
+        .set::<_, _, ()>(&key, message)
         .await
         .to_internal_error()?;
 
     // The Redis value is the latest message to acknowledge. Trigger the
-    // debounced worker whenever this value advances; only identical repeated
-    // acknowledgements can be ignored.
-    if old.as_deref() != Some(message) {
-        amqp.process_ack(user, Some(channel), None)
-            .await
-            .to_internal_error()?;
-    }
+    // debounced worker whenever this value advances.
+    amqp.process_ack(user, Some(channel), None)
+        .await
+        .to_internal_error()?;
 
     Ok(())
 }

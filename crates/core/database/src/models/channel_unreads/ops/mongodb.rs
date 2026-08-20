@@ -26,6 +26,11 @@ impl AbstractChannelUnreads for MongoDb {
                 doc! {
                     "_id.channel": channel_id,
                     "_id.user": user_id,
+                    "$or": [
+                        { "last_id": { "$exists": false } },
+                        { "last_id": null },
+                        { "last_id": { "$lte": message_id } },
+                    ],
                 },
                 doc! {
                     "$pull": {
