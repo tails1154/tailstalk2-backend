@@ -216,6 +216,14 @@ impl User {
         let new_username = User::sanitise_username(&username).await?;
         User::validate_username(&new_username)?;
 
+        if db
+            .fetch_user_by_username(&new_username, "0000")
+            .await
+            .is_ok()
+        {
+            return Err(create_error!(UsernameTaken));
+        }
+
         let mut user = User {
             id: account_id.into().unwrap_or_else(|| Ulid::new().to_string()),
             discriminator: "0000".to_owned(),
@@ -405,6 +413,14 @@ impl User {
             )
             .await
         } else {
+            if db
+                .fetch_user_by_username(&new_username, "0000")
+                .await
+                .is_ok()
+            {
+                return Err(create_error!(UsernameTaken));
+            }
+
             self.update(
                 db,
                 PartialUser {

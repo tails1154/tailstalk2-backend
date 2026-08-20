@@ -77,7 +77,7 @@ fn user_from_doc(doc: &bson::Document) -> Option<AdminUserInfo> {
     Some(AdminUserInfo {
         id: doc.get_str("_id").ok()?.to_string(),
         username: doc.get_str("username").ok()?.to_string(),
-        discriminator: doc.get_str("discriminator").unwrap_or("0000").to_string(),
+        discriminator: "0000".to_owned(),
         display_name: display,
         flags: doc.get_i32("flags").ok(),
         suspended_until: suspended,
