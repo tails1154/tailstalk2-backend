@@ -137,6 +137,9 @@ auto_derived!(
         /// Background visible on user's profile
         #[serde(skip_serializing_if = "Option::is_none")]
         pub background: Option<File>,
+        /// ID of the user's selected profile decoration
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub decoration: Option<String>,
     }
 
     /// Bot information for if the user is a bot

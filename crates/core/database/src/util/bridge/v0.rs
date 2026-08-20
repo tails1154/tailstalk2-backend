@@ -1381,6 +1381,7 @@ impl From<crate::UserProfile> for UserProfile {
         UserProfile {
             content: value.content,
             background: value.background.map(|file| file.into()),
+            decoration: value.decoration,
         }
     }
 }
@@ -1390,6 +1391,7 @@ impl From<UserProfile> for crate::UserProfile {
         crate::UserProfile {
             content: value.content,
             background: value.background.map(|file| file.into()),
+            decoration: value.decoration,
         }
     }
 }

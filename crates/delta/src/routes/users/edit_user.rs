@@ -118,6 +118,15 @@ pub async fn edit(
                 Some(File::use_background(db, &background, &user.id, &user.id).await?);
         }
 
+        if let Some(decoration) = profile.decoration {
+            if decoration.is_empty() {
+                new_profile.decoration = None;
+            } else {
+                crate::routes::decorations::validate_selection(db, &decoration, &user.id).await?;
+                new_profile.decoration = Some(decoration);
+            }
+        }
+
         partial.profile = Some(new_profile);
     }
 
