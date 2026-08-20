@@ -1556,6 +1556,14 @@ pub async fn run_migrations(db: &MongoDb, revision: i32) -> i32 {
     if revision <= 53 {
         info!("Running migration [revision 53 / 19-08-2026]: Set all user discriminators to 0000");
 
+        let _ = db
+            .db()
+            .run_command(doc! {
+                "dropIndexes": "users",
+                "index": "username_discriminator"
+            })
+            .await;
+
         db.col::<Document>("users")
             .update_many(
                 doc! {},
@@ -1563,6 +1571,49 @@ pub async fn run_migrations(db: &MongoDb, revision: i32) -> i32 {
             )
             .await
             .expect("Failed to normalize user discriminators.");
+
+        #[derive(Deserialize)]
+        struct UserIdentity {
+            #[serde(rename = "_id")]
+            id: String,
+            username: String,
+        }
+
+        let users: Vec<UserIdentity> = db
+            .col::<UserIdentity>("users")
+            .find(doc! {})
+            .await
+            .expect("Failed to list users while enforcing unique usernames.")
+            .map(|result| result.expect("Failed to decode user identity"))
+            .collect()
+            .await;
+        let mut claimed = HashSet::new();
+
+        for user in users {
+            let key = user.username.to_lowercase();
+            if claimed.insert(key) {
+                continue;
+            }
+
+            let suffix: String = user.id.chars().rev().take(6).collect::<String>().chars().rev().collect();
+            let base: String = user.username.chars().take(25).collect();
+            let mut candidate = format!("{base}-{suffix}");
+            let mut counter = 1;
+            while claimed.contains(&candidate.to_lowercase()) {
+                candidate = format!("{}-{}", base.chars().take(22).collect::<String>(), counter);
+                counter += 1;
+            }
+
+            info!("Renaming duplicate username {} to {}", user.username, candidate);
+            db.col::<Document>("users")
+                .update_one(
+                    doc! { "_id": &user.id },
+                    doc! { "$set": { "username": &candidate } },
+                )
+                .await
+                .expect("Failed to rename duplicate username.");
+            claimed.insert(candidate.to_lowercase());
+        }
     }
 
     if revision <= 54 {
@@ -1579,15 +1630,20 @@ pub async fn run_migrations(db: &MongoDb, revision: i32) -> i32 {
         db.db()
             .run_command(doc! {
                 "createIndexes": "users",
-                "indexes": [{
-                    "key": { "username": 1_i32 },
-                    "name": "username",
-                    "unique": true,
-                    "collation": {
-                        "locale": "en",
-                        "strength": 2_i32
+                "indexes": [
+                    {
+                        "key": { "username": 1_i32 },
+                        "name": "username",
+                        "unique": true,
+                        "collation": { "locale": "en", "strength": 2_i32 }
+                    },
+                    {
+                        "key": { "username": 1_i32, "discriminator": 1_i32 },
+                        "name": "username_discriminator",
+                        "unique": true,
+                        "collation": { "locale": "en", "strength": 2_i32 }
                     }
-                }]
+                ]
             })
             .await
             .expect("Failed to enforce unique usernames.");
