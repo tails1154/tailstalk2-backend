@@ -63,6 +63,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         backup::restore,
         onboarding::fetch,
         onboarding::update,
+        onboarding::complete,
         xp::fetch_settings,
         xp::update_settings,
         xp::leaderboard,
