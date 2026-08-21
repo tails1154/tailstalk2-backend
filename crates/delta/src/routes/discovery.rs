@@ -4,10 +4,12 @@ use rocket::{serde::json::Json, State};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ulid::Ulid;
+use url::Url;
 
 use crate::routes::admin::auth::AdminUser;
 
 const CONFIG_ID: &str = "discovery";
+const PUBLIC_INVITE_BASE: &str = "https://tails1154.com:9961/invite/";
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 pub struct DiscoveryListing {
@@ -29,6 +31,22 @@ pub struct SubmitDiscovery {
     pub category: Option<String>,
 }
 
+fn invite_code(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+
+    if let Ok(url) = Url::parse(value) {
+        return url
+            .path_segments()
+            .and_then(|segments| segments.filter(|segment| !segment.is_empty()).next_back())
+            .map(str::to_owned);
+    }
+
+    Some(value.trim_start_matches("/invite/").to_owned())
+}
+
 fn listing_from_doc(d: &Document) -> Option<DiscoveryListing> {
     Some(DiscoveryListing {
         id: d.get_str("id").ok()?.to_string(),
@@ -37,7 +55,11 @@ fn listing_from_doc(d: &Document) -> Option<DiscoveryListing> {
         name: d.get_str("name").unwrap_or("").to_string(),
         description: d.get_str("description").unwrap_or("").to_string(),
         category: d.get_str("category").unwrap_or("").to_string(),
-        invite: d.get_str("invite").ok().map(str::to_string),
+        invite: d
+            .get_str("invite")
+            .ok()
+            .and_then(invite_code)
+            .map(|code| format!("{PUBLIC_INVITE_BASE}{code}")),
         members: d.get_i64("members").unwrap_or(0),
         status: d.get_str("status").unwrap_or("pending").to_string(),
     })
@@ -115,6 +137,7 @@ pub async fn submit_server(
         }));
     }
     let SubmitDiscovery { invite, description, category } = data.into_inner();
+    let invite = invite.as_deref().and_then(invite_code);
     if let Some(code) = &invite {
         match db.fetch_invite(code).await? {
             Invite::Server { server: target, .. } if target == server.id => {}
