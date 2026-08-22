@@ -35,7 +35,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
         mount_endpoints_and_merged_docs! {
             rocket, "/".to_owned(), settings,
             "/" => (vec![], custom_openapi_spec()),
-            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, gifs::proxy, themes::list, themes::fetch, themes::create, themes::delete],
+            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, themes::list, themes::fetch, themes::create, themes::delete],
             "/admin" => admin::routes(),
             "/users" => users::routes(),
             "/bots" => bots::routes(),
@@ -58,7 +58,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
         mount_endpoints_and_merged_docs! {
             rocket, "/".to_owned(), settings,
             "/" => (vec![], custom_openapi_spec()),
-            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, gifs::proxy, themes::list, themes::fetch, themes::create, themes::delete],
+            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, themes::list, themes::fetch, themes::create, themes::delete],
             "/admin" => admin::routes(),
             "/users" => users::routes(),
             "/bots" => bots::routes(),
