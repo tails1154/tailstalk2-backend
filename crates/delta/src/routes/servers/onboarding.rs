@@ -13,6 +13,8 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 pub struct ServerOnboarding {
     pub enabled: bool,
+    #[serde(default)]
+    pub completed: bool,
     pub title: String,
     pub message: String,
     pub rules: String,
@@ -120,7 +122,7 @@ pub async fn fetch(
     let server = target.as_server(db).await?;
     db.fetch_member(&server.id, &user.id).await?;
 
-    let settings = match &**db {
+    let mut settings = match &**db {
         Database::MongoDb(mongo) => mongo
             .col::<ServerOnboarding>("server_onboarding")
             .find_one(doc! { "_id": &server.id })
@@ -137,6 +139,18 @@ pub async fn fetch(
             ..Default::default()
         },
     };
+
+    if let Database::MongoDb(mongo) = &**db {
+        settings.completed = mongo
+            .col::<Document>("server_onboarding_completions")
+            .find_one(doc! {
+                "_id.server": &server.id,
+                "_id.user": &user.id,
+            })
+            .await
+            .map_err(|_| create_database_error!("find_one", "server_onboarding_completions"))?
+            .is_some();
+    }
 
     Ok(Json(settings))
 }
@@ -215,6 +229,23 @@ pub async fn complete(
             vec![],
         )
         .await?;
+
+    if let Database::MongoDb(mongo) = &**db {
+        mongo
+            .col::<Document>("server_onboarding_completions")
+            .update_one(
+                doc! {
+                    "_id.server": &server.id,
+                    "_id.user": &user.id,
+                },
+                doc! { "$set": { "completed": true } },
+            )
+            .upsert(true)
+            .await
+            .map_err(|_| {
+                create_database_error!("update_one", "server_onboarding_completions")
+            })?;
+    }
 
     Ok(Json(CompleteOnboardingResponse {
         roles: selected_roles,
