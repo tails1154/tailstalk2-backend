@@ -4,6 +4,7 @@ pub use rocket::http::Status;
 pub use rocket::response::Redirect;
 use rocket::{Build, Rocket};
 
+mod account;
 mod admin;
 mod bots;
 mod channels;
@@ -12,22 +13,21 @@ pub(crate) mod discovery;
 pub(crate) mod feature_requests;
 mod gifs;
 mod invites;
+mod mfa;
+mod oauth;
 mod onboard;
 mod policy;
 mod push;
 mod root;
 mod safety;
 mod servers;
+mod session;
 mod sync;
 mod themes;
 mod users;
 mod videos;
 mod webhooks;
 mod whatsnew_public;
-mod account;
-mod session;
-mod mfa;
-mod oauth;
 
 pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
     let settings = OpenApiSettings::default();
@@ -36,7 +36,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
         mount_endpoints_and_merged_docs! {
             rocket, "/".to_owned(), settings,
             "/" => (vec![], custom_openapi_spec()),
-            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, themes::list, themes::fetch, themes::create, themes::delete, videos::list, videos::create],
+            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, themes::list, themes::fetch, themes::create, themes::delete, videos::list, videos::create, videos::delete],
             "/admin" => admin::routes(),
             "/users" => users::routes(),
             "/bots" => bots::routes(),
@@ -59,7 +59,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
         mount_endpoints_and_merged_docs! {
             rocket, "/".to_owned(), settings,
             "/" => (vec![], custom_openapi_spec()),
-            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, themes::list, themes::fetch, themes::create, themes::delete, videos::list, videos::create],
+            "" => openapi_get_routes_spec![root::root, whatsnew_public::get_whatsnew, discovery::list, discovery::submit_server, discovery::submit_bot, feature_requests::list, feature_requests::create, gifs::random, themes::list, themes::fetch, themes::create, themes::delete, videos::list, videos::create, videos::delete],
             "/admin" => admin::routes(),
             "/users" => users::routes(),
             "/bots" => bots::routes(),

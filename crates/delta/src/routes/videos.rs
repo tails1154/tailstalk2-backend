@@ -110,3 +110,22 @@ pub async fn create(
 
     Ok(Json(post))
 }
+
+/// Remove a video published by the authenticated user.
+#[openapi(tag = "User Information")]
+#[delete("/videos/<id>")]
+pub async fn delete(db: &State<Database>, user: User, id: String) -> Result<()> {
+    if let Database::MongoDb(mongo) = db.inner() {
+        let result = mongo
+            .col::<Document>("user_videos")
+            .delete_one(doc! { "_id": id, "author_id": user.id })
+            .await
+            .map_err(|_| create_error!(InternalError))?;
+        if result.deleted_count == 0 {
+            return Err(create_error!(NotFound));
+        }
+        Ok(())
+    } else {
+        Err(create_error!(InternalError))
+    }
+}
