@@ -454,19 +454,11 @@ impl Message {
                 let mut query = DatabasePermissionQuery::new(db, &owned_user).channel(&channel);
                 let perms = calculate_channel_permissions(&mut query).await;
 
-                if (mentions_everyone || mentions_online)
-                    && !perms.has_channel_permission(ChannelPermission::MentionEveryone)
+                if (mentions_everyone || mentions_online || !role_mentions.is_empty())
+                    && !perms.has_channel_permission(ChannelPermission::PingEveryoneAndRoles)
                 {
                     return Err(create_error!(MissingPermission {
-                        permission: ChannelPermission::MentionEveryone.to_string()
-                    }));
-                }
-
-                if !role_mentions.is_empty()
-                    && !perms.has_channel_permission(ChannelPermission::MentionRoles)
-                {
-                    return Err(create_error!(MissingPermission {
-                        permission: ChannelPermission::MentionRoles.to_string()
+                        permission: ChannelPermission::PingEveryoneAndRoles.to_string()
                     }));
                 }
             }

@@ -132,6 +132,7 @@ mod test {
                 masquerade: None,
                 interactions: None,
                 flags: None,
+                poll: None,
             },
             v0::MessageAuthor::User(&user.clone().into(&harness.db, Some(&user)).await),
             Some(user.clone().into(&harness.db, Some(&user)).await),

@@ -7,8 +7,8 @@ use revolt_permissions::{calculate_server_permissions, ChannelPermission};
 use revolt_result::{create_database_error, Result};
 use rocket::{serde::json::Json, State};
 use schemars::JsonSchema;
-use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, JsonSchema)]
 pub struct ServerOnboarding {
@@ -51,6 +51,15 @@ fn validate_questions(
     questions: &[OnboardingQuestion],
     server: &revolt_database::Server,
 ) -> Result<()> {
+    let role_ids = server.roles.keys().cloned().collect::<HashSet<_>>();
+    validate_question_config(questions, &role_ids, &server.id)
+}
+
+fn validate_question_config(
+    questions: &[OnboardingQuestion],
+    role_ids: &HashSet<String>,
+    default_role_id: &str,
+) -> Result<()> {
     let mut question_ids = HashSet::new();
     for question in questions {
         if question.id.trim().is_empty() || !question_ids.insert(&question.id) {
@@ -62,14 +71,42 @@ fn validate_questions(
             if option.id.trim().is_empty()
                 || option.label.trim().is_empty()
                 || !option_ids.insert(&option.id)
-                || !server.roles.contains_key(&option.role_id)
-                || option.role_id == server.id
+                || !role_ids.contains(&option.role_id)
+                || option.role_id == default_role_id
             {
                 return Err(revolt_result::create_error!(InvalidProperty));
             }
         }
     }
     Ok(())
+}
+
+fn selected_roles(
+    questions: &[OnboardingQuestion],
+    answers: HashMap<String, Vec<String>>,
+) -> Result<Vec<String>> {
+    let mut selected_roles = HashSet::new();
+    for (question_id, option_ids) in answers {
+        let question = questions
+            .iter()
+            .find(|question| question.id == question_id)
+            .ok_or_else(|| revolt_result::create_error!(InvalidProperty))?;
+        if !question.multiple && option_ids.len() > 1 {
+            return Err(revolt_result::create_error!(InvalidProperty));
+        }
+        for option_id in option_ids {
+            let option = question
+                .options
+                .iter()
+                .find(|option| option.id == option_id)
+                .ok_or_else(|| revolt_result::create_error!(InvalidProperty))?;
+            selected_roles.insert(option.role_id.clone());
+        }
+    }
+
+    let mut selected_roles = selected_roles.into_iter().collect::<Vec<_>>();
+    selected_roles.sort();
+    Ok(selected_roles)
 }
 
 /// Fetch onboarding settings for a server member.
@@ -162,25 +199,7 @@ pub async fn complete(
 
     validate_questions(&settings.questions, &server)?;
 
-    let mut selected_roles = HashSet::new();
-    for (question_id, option_ids) in data.into_inner().answers {
-        let question = settings
-            .questions
-            .iter()
-            .find(|question| question.id == question_id)
-            .ok_or_else(|| revolt_result::create_error!(InvalidProperty))?;
-        if !question.multiple && option_ids.len() > 1 {
-            return Err(revolt_result::create_error!(InvalidProperty));
-        }
-        for option_id in option_ids {
-            let option = question
-                .options
-                .iter()
-                .find(|option| option.id == option_id)
-                .ok_or_else(|| revolt_result::create_error!(InvalidProperty))?;
-            selected_roles.insert(option.role_id.clone());
-        }
-    }
+    let selected_roles = selected_roles(&settings.questions, data.into_inner().answers)?;
 
     let mut roles = member.roles.clone();
     roles.extend(selected_roles.iter().cloned());
@@ -198,6 +217,75 @@ pub async fn complete(
         .await?;
 
     Ok(Json(CompleteOnboardingResponse {
-        roles: selected_roles.into_iter().collect(),
+        roles: selected_roles,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn question(multiple: bool) -> OnboardingQuestion {
+        OnboardingQuestion {
+            id: "platform".into(),
+            prompt: "What do you use?".into(),
+            multiple,
+            options: vec![
+                OnboardingOption {
+                    id: "desktop".into(),
+                    label: "Desktop".into(),
+                    role_id: "role-desktop".into(),
+                },
+                OnboardingOption {
+                    id: "mobile".into(),
+                    label: "Mobile".into(),
+                    role_id: "role-mobile".into(),
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn validates_role_targets_and_question_ids() {
+        let questions = vec![question(false)];
+        let role_ids = ["role-desktop", "role-mobile"]
+            .iter()
+            .map(|role_id| role_id.to_string())
+            .collect();
+
+        assert!(validate_question_config(&questions, &role_ids, "server").is_ok());
+
+        let mut invalid = questions.clone();
+        invalid[0].options[0].role_id = "missing-role".into();
+        assert!(validate_question_config(&invalid, &role_ids, "server").is_err());
+
+        let mut duplicate = questions;
+        duplicate.push(question(false));
+        assert!(validate_question_config(&duplicate, &role_ids, "server").is_err());
+    }
+
+    #[test]
+    fn selects_roles_for_valid_answers_in_stable_order() {
+        let questions = vec![question(true)];
+        let answers = HashMap::from([("platform".into(), vec!["mobile".into(), "desktop".into()])]);
+
+        assert_eq!(
+            selected_roles(&questions, answers).unwrap(),
+            vec!["role-desktop", "role-mobile"]
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_and_multiple_answers_for_single_choice() {
+        let questions = vec![question(false)];
+        let too_many =
+            HashMap::from([("platform".into(), vec!["desktop".into(), "mobile".into()])]);
+        assert!(selected_roles(&questions, too_many).is_err());
+
+        let unknown_question = HashMap::from([("unknown".into(), vec!["desktop".into()])]);
+        assert!(selected_roles(&questions, unknown_question).is_err());
+
+        let unknown_option = HashMap::from([("platform".into(), vec!["unknown".into()])]);
+        assert!(selected_roles(&questions, unknown_option).is_err());
+    }
 }
