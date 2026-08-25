@@ -207,7 +207,8 @@ impl Channel {
 
         let id = ulid::Ulid::new().to_string();
         let channel = match data.channel_type {
-            v0::LegacyServerChannelType::Text => Channel::TextChannel {
+            v0::LegacyServerChannelType::Text | v0::LegacyServerChannelType::Forum => {
+                Channel::TextChannel {
                 id: id.clone(),
                 server: server.id.to_owned(),
                 name: data.name,
@@ -220,7 +221,8 @@ impl Channel {
                 voice: data.voice.map(|voice| voice.into()),
                 slowmode: None,
                 forum: data.forum,
-            },
+                }
+            }
             v0::LegacyServerChannelType::Voice => Channel::TextChannel {
                 id: id.clone(),
                 server: server.id.to_owned(),

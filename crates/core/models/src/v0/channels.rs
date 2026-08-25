@@ -239,6 +239,8 @@ auto_derived!(
         /// Text Channel
         #[default]
         Text,
+        /// Forum-mode text channel
+        Forum,
         /// Voice Channel
         Voice,
     }
