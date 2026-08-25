@@ -116,6 +116,10 @@ auto_derived!(
             /// The channel's slowmode delay in seconds
             #[serde(skip_serializing_if = "Option::is_none")]
             slowmode: Option<u64>,
+
+            /// Optional forum purpose for this text channel
+            #[serde(skip_serializing_if = "Option::is_none")]
+            forum: Option<String>,
         },
     }
 
@@ -255,6 +259,10 @@ auto_derived!(
         /// Whether this channel is age restricted
         #[serde(skip_serializing_if = "Option::is_none")]
         pub nsfw: Option<bool>,
+
+        /// Optional forum purpose for this text channel
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub forum: Option<String>,
 
         /// Voice Information for when this channel is also a voice channel
         #[serde(skip_serializing_if = "Option::is_none")]
