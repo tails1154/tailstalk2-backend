@@ -76,13 +76,9 @@ pub async fn close(
     msg: Reference<'_>,
 ) -> Result<Json<v0::Message>> {
     let channel = target.as_channel(db).await?;
-    let mut permissions = DatabasePermissionQuery::new(db, &user).channel(&channel);
-    let calculated = calculate_channel_permissions(&mut permissions).await;
     let mut message = msg.as_message_in_channel(db, channel.id()).await?;
 
-    if message.author != user.id
-        && !calculated.has_channel_permission(ChannelPermission::ManageMessages)
-    {
+    if message.author != user.id {
         return Err(create_error!(NotFound));
     }
 
