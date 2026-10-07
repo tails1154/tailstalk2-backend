@@ -380,20 +380,30 @@ impl Message {
                 .interactions
                 .map(|interactions| interactions.into())
                 .unwrap_or_default(),
-            poll: data.poll.map(|poll| v0::Poll {
-                question: poll.question,
-                options: poll
-                    .options
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, text)| PollOption {
-                        id: (index + 1).to_string(),
-                        text,
-                    })
-                    .collect(),
-                multiple: poll.multiple.unwrap_or(false),
-                closed: false,
-                votes: IndexMap::new(),
+            poll: data.poll.map(|poll| {
+                let closes_at = poll.duration.map(|duration| {
+                    SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as i64
+                        + i64::from(duration) * 1000
+                });
+                v0::Poll {
+                    question: poll.question,
+                    options: poll
+                        .options
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, text)| PollOption {
+                            id: (index + 1).to_string(),
+                            text,
+                        })
+                        .collect(),
+                    multiple: poll.multiple.unwrap_or(false),
+                    closed: false,
+                    closes_at,
+                    votes: IndexMap::new(),
+                }
             }),
             author: author_id,
             webhook: webhook.map(|w| w.into()),

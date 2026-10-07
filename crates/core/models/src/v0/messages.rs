@@ -186,6 +186,9 @@ auto_derived!(
         /// Whether voting is closed
         #[serde(default)]
         pub closed: bool,
+        /// Unix timestamp in milliseconds when voting automatically closes
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub closes_at: Option<i64>,
         /// User IDs grouped by selected option
         #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
         pub votes: IndexMap<String, IndexSet<String>>,
@@ -323,6 +326,9 @@ auto_derived!(
         #[cfg_attr(feature = "validator", validate(length(min = 2, max = 10)))]
         pub options: Vec<String>,
         pub multiple: Option<bool>,
+        /// Optional number of seconds before voting closes (60 seconds to 1 year)
+        #[cfg_attr(feature = "validator", validate(range(min = 60, max = 31536000)))]
+        pub duration: Option<u32>,
     }
 
     /// Poll vote payload.
@@ -438,6 +444,61 @@ auto_derived!(
         Pinned,
     }
 );
+
+#[cfg(test)]
+mod poll_tests {
+    use super::{Poll, PollCreate};
+
+    #[test]
+    fn poll_duration_accepts_supported_limits() {
+        use validator::Validate;
+
+        for duration in [Some(60), Some(31_536_000), None] {
+            let poll = PollCreate {
+                question: "Question".into(),
+                options: vec!["One".into(), "Two".into()],
+                multiple: None,
+                duration,
+            };
+            assert!(
+                poll.validate().is_ok(),
+                "duration {duration:?} should be valid"
+            );
+        }
+    }
+
+    #[test]
+    fn poll_duration_rejects_values_outside_supported_limits() {
+        use validator::Validate;
+
+        for duration in [Some(59), Some(31_536_001)] {
+            let poll = PollCreate {
+                question: "Question".into(),
+                options: vec!["One".into(), "Two".into()],
+                multiple: None,
+                duration,
+            };
+            assert!(
+                poll.validate().is_err(),
+                "duration {duration:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn existing_polls_deserialize_without_a_close_time() {
+        let poll: Poll = serde_json::from_value(serde_json::json!({
+            "question": "Question",
+            "options": [],
+            "multiple": false,
+            "closed": false,
+            "votes": {}
+        }))
+        .expect("legacy poll should remain readable");
+
+        assert_eq!(poll.closes_at, None);
+    }
+}
 
 /// Message Author Abstraction
 #[derive(Clone)]

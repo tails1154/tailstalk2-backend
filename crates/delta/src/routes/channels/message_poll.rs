@@ -1,10 +1,11 @@
 use revolt_database::util::{permissions::DatabasePermissionQuery, reference::Reference};
 use revolt_database::{Database, PartialMessage, User};
 use revolt_models::v0;
-use revolt_permissions::{ChannelPermission, calculate_channel_permissions};
-use revolt_result::{Result, create_error};
-use rocket::State;
+use revolt_permissions::{calculate_channel_permissions, ChannelPermission};
+use revolt_result::{create_error, Result};
 use rocket::serde::json::Json;
+use rocket::State;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Vote in a native message poll.
 #[openapi(tag = "Messaging")]
@@ -23,11 +24,15 @@ pub async fn vote(
         .throw_if_lacking_channel_permission(ChannelPermission::ViewChannel)?;
 
     let mut message = msg.as_message_in_channel(db, channel.id()).await?;
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64;
     let poll = message
         .poll
         .as_mut()
         .ok_or(create_error!(InvalidOperation))?;
-    if poll.closed {
+    if poll.closed || poll.closes_at.is_some_and(|closes_at| now >= closes_at) {
         return Err(create_error!(InvalidOperation));
     }
 
