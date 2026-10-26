@@ -268,6 +268,16 @@ pub struct ApiAuditLogs {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct ApiStripe {
+    pub enabled: bool,
+    pub secret_key: String,
+    pub webhook_secret: String,
+    pub supporter_price_id: String,
+    pub success_url: String,
+    pub cancel_url: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Api {
     pub registration: ApiRegistration,
     pub smtp: ApiSmtp,
@@ -276,6 +286,7 @@ pub struct Api {
     pub livekit: ApiLiveKit,
     pub users: ApiUsers,
     pub audit_logs: ApiAuditLogs,
+    pub stripe: ApiStripe,
 }
 
 #[derive(Deserialize, Debug, Clone)]

@@ -809,6 +809,7 @@ impl From<Server> for crate::Server {
             nsfw: value.nsfw,
             analytics: value.analytics,
             discoverable: value.discoverable,
+            admin_suspended: false,
         }
     }
 }
@@ -861,6 +862,7 @@ impl From<PartialServer> for crate::PartialServer {
             nsfw: value.nsfw,
             analytics: value.analytics,
             discoverable: value.discoverable,
+            admin_suspended: Some(false),
         }
     }
 }
@@ -1599,6 +1601,12 @@ impl From<crate::Account> for AccountInfo {
         AccountInfo {
             id: item.id,
             email: item.email,
+            subscription: item.subscription.map(|subscription| AccountSubscription {
+                provider: subscription.provider,
+                tier: subscription.tier,
+                active_until: subscription.active_until,
+                cancel_at_period_end: subscription.cancel_at_period_end,
+            }),
         }
     }
 }

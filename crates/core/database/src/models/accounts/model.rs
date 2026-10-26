@@ -51,8 +51,28 @@ auto_derived_partial!(
 
         /// Multi-factor authentication information
         pub mfa: MultiFactorAuthentication,
+
+        /// Subscription entitlement granted by a payment provider.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub subscription: Option<Subscription>,
     },
     "PartialAccount"
+);
+
+auto_derived!(
+    /// A subscription entitlement attached to an account.
+    pub struct Subscription {
+        pub provider: String,
+        pub tier: String,
+        pub active_until: Timestamp,
+        pub last_message_id: String,
+        #[serde(default)]
+        pub cancel_at_period_end: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub provider_customer_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub provider_subscription_id: Option<String>,
+    }
 );
 
 auto_derived!(
@@ -318,6 +338,7 @@ impl Account {
                 lockout: None,
 
                 mfa: Default::default(),
+                subscription: None,
             };
 
             // Send email verification

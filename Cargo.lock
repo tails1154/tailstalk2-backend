@@ -7348,6 +7348,8 @@ dependencies = [
  "chrono",
  "dashmap",
  "futures",
+ "hex",
+ "hmac 0.12.1",
  "impl_ops",
  "iso8601-timestamp",
  "lapin",

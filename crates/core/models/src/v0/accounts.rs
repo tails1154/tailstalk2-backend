@@ -37,6 +37,15 @@ auto_derived!(
         #[serde(rename = "_id")]
         pub id: String,
         pub email: String,
+        pub subscription: Option<AccountSubscription>,
+    }
+
+    pub struct AccountSubscription {
+        pub provider: String,
+        pub tier: String,
+        pub active_until: iso8601_timestamp::Timestamp,
+        #[serde(default)]
+        pub cancel_at_period_end: bool,
     }
 
     /// # Password Reset
