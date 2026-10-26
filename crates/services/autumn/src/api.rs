@@ -203,10 +203,27 @@ async fn upload_file(
 
     // Get user's file upload limits
     let limits = user.limits().await;
-    let size_limit = *limits
+    let mut size_limit = *limits
         .file_upload_size_limit
         .get(tag.clone().into())
         .expect("size limit");
+
+    // Premium increases only attachment capacity; all other upload types
+    // retain their normal limits. Keep the entitlement check server-side so
+    // clients cannot bypass the free-tier limit.
+    if matches!(tag, Tag::attachments)
+        && db
+            .fetch_account(&user.id)
+            .await
+            .ok()
+            .and_then(|account| account.subscription)
+            .is_some_and(|subscription| {
+                subscription.provider == "stripe"
+                    && subscription.active_until > Timestamp::now_utc()
+            })
+    {
+        size_limit = size_limit.max(2_000_000_000);
+    }
 
     if original_file_size > size_limit {
         return Err(create_error!(FileTooLarge { max: size_limit }));
