@@ -13,6 +13,7 @@ pub mod resend_verification;
 pub mod send_password_reset;
 pub mod stripe_checkout;
 pub mod stripe_cancel;
+pub mod stripe_resume;
 pub mod verify_email;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
@@ -30,5 +31,6 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         send_password_reset::send_password_reset,
         stripe_checkout::stripe_checkout,
         stripe_cancel::stripe_cancel,
+        stripe_resume::stripe_resume,
     ]
 }
