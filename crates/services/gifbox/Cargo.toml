@@ -23,9 +23,10 @@ revolt-result = { workspace = true, features = ["utoipa", "axum"] }
 revolt-coalesced = { workspace = true, features = ["queue"] }
 revolt-database = { workspace = true, features = ["axum-impl"] }
 revolt-ratelimits = { workspace = true, features = ["axum"] }
+ulid = { workspace = true }
 
 # Axum / web server
-axum = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
 axum-extra = { workspace = true, features = ["typed-header"] }
 tower-http = { workspace = true, features = ["cors"] }
 
