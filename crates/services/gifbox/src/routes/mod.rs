@@ -8,6 +8,7 @@ use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 
 pub mod categories;
 pub mod root;
+pub mod recent;
 pub mod search;
 pub mod trending;
 pub mod upload;
@@ -26,6 +27,7 @@ pub fn router() -> Router<AppState> {
 
     Router::new()
         .route("/", get(root::root))
+        .route("/recent", get(recent::recent))
         .route("/categories", get(categories::categories))
         .route("/search", get(search::search))
         .route("/trending", get(trending::trending))

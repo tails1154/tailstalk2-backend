@@ -61,6 +61,9 @@ auto_derived_partial!(
         /// Whether this server should be publicly discoverable
         #[serde(skip_serializing_if = "crate::if_false", default)]
         pub discoverable: bool,
+        /// Whether this server is suspended by a platform administrator
+        #[serde(skip_serializing_if = "crate::if_false", default)]
+        pub admin_suspended: bool,
     },
     "PartialServer"
 );
@@ -158,6 +161,7 @@ impl Server {
             banner: None,
             categories: None,
             discoverable: false,
+            admin_suspended: false,
             flags: None,
             icon: None,
             roles: HashMap::new(),

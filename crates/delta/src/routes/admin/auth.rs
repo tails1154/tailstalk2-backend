@@ -13,7 +13,6 @@ static ADMIN_HASH: LazyLock<String> = LazyLock::new(|| {
     let content = include_str!("../../../../../admin.toml");
     for line in content.lines() {
         if let Some(value) = line.strip_prefix("password_hash = ") {
-            let value: &str = value;
             return value.trim_matches('"').to_string();
         }
     }

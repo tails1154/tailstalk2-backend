@@ -1,7 +1,9 @@
 use revolt_database::{
     mongodb::bson::{self, doc},
-    Database,
+    util::email::email_templates,
+    Database, PasswordReset,
 };
+use revolt_config::config;
 use revolt_result::Result;
 use rocket::State;
 use rocket::serde::json::Json;
@@ -162,6 +164,38 @@ pub async fn admin_search_users(
     };
 
     Ok(Json(users))
+}
+
+/// # Generate Password Reset Link
+///
+/// Generate a one-time password reset link without sending an email.
+#[openapi(tag = "Admin")]
+#[post("/users/<id>/password-reset")]
+pub async fn admin_generate_password_reset(
+    _admin: AdminUser,
+    db: &State<Database>,
+    id: String,
+) -> Result<Json<serde_json::Value>> {
+    let mut account = db.fetch_account(&id).await?;
+    let config = config().await;
+    let token = nanoid::nanoid!(32);
+    let expiry = iso8601_timestamp::Timestamp::now_utc()
+        .checked_add(iso8601_timestamp::Duration::seconds(
+            config.api.smtp.expiry.expire_password_reset,
+        ))
+        .ok_or(revolt_result::create_error!(InternalError))?;
+
+    account.password_reset = Some(PasswordReset {
+        token: token.clone(),
+        expiry,
+    });
+    account.save(db).await?;
+
+    let templates = email_templates().await;
+    Ok(Json(serde_json::json!({
+        "url": format!("{}{}", templates.reset.url, token),
+        "expires_at": expiry.to_string(),
+    })))
 }
 
 /// # Ban User
