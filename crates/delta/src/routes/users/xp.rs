@@ -85,8 +85,8 @@ pub(crate) fn xp_for_level(level: i64) -> i64 {
     threshold
 }
 
-fn response(user_id: String, xp: i64) -> XPResponse {
-    let level = level_for_xp(xp);
+fn response(user_id: String, xp: i64, level_override: Option<i64>) -> XPResponse {
+    let level = level_override.unwrap_or_else(|| level_for_xp(xp));
     XPResponse {
         user_id,
         xp,
@@ -96,17 +96,17 @@ fn response(user_id: String, xp: i64) -> XPResponse {
 }
 
 pub(crate) async fn read(db: &Database, user_id: &str) -> Result<XPResponse> {
-    let xp = match db {
+    let (xp, level_override) = match db {
         Database::MongoDb(mongo) => mongo
             .col::<Document>("user_xp")
             .find_one(doc! { "_id": user_id })
             .await
             .map_err(|_| create_error!(InternalError))?
-            .and_then(|entry| entry.get_i64("xp").ok())
-            .unwrap_or(0),
-        _ => 0,
+            .map(|entry| (entry.get_i64("xp").unwrap_or(0), entry.get_i64("level_override").ok()))
+            .unwrap_or((0, None)),
+        _ => (0, None),
     };
-    Ok(response(user_id.to_string(), xp))
+    Ok(response(user_id.to_string(), xp, level_override))
 }
 
 pub(crate) async fn read_settings(db: &Database, server_id: &str) -> XPSettings {
@@ -210,17 +210,21 @@ pub async fn leaderboard(
             .map_err(|_| create_error!(InternalError))?
             .filter_map(|item| async move { item.ok() })
             .filter_map(|item| async move {
-                Some((item.get_str("_id").ok()?.to_owned(), item.get_i64("xp").unwrap_or(0)))
+                Some((
+                    item.get_str("_id").ok()?.to_owned(),
+                    item.get_i64("xp").unwrap_or(0),
+                    item.get_i64("level_override").ok(),
+                ))
             })
             .collect::<Vec<_>>()
             .await,
         _ => Vec::new(),
     };
-    Ok(Json(entries.into_iter().enumerate().map(|(index, (user_id, xp))| XPLeaderboardEntry {
+    Ok(Json(entries.into_iter().enumerate().map(|(index, (user_id, xp, level_override))| XPLeaderboardEntry {
         rank: index as i64 + 1,
         user_id,
         xp,
-            level: level_for_xp(xp),
+        level: level_override.unwrap_or_else(|| level_for_xp(xp)),
     }).collect()))
 }
 
