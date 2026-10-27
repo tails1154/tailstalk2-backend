@@ -7,6 +7,7 @@ mod backup;
 mod ban_create;
 mod ban_list;
 mod ban_remove;
+mod boosts;
 mod channel_create;
 mod emoji_list;
 mod invites_fetch;
@@ -48,6 +49,11 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         ban_create::ban,
         ban_remove::unban,
         ban_list::list,
+        boosts::fetch,
+        boosts::add,
+        boosts::purchase,
+        boosts::remove,
+        boosts::update_settings,
         invites_fetch::invites,
         roles_create::create,
         roles_edit::edit,

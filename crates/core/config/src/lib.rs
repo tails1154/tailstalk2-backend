@@ -273,6 +273,9 @@ pub struct ApiStripe {
     pub secret_key: String,
     pub webhook_secret: String,
     pub supporter_price_id: String,
+    /// One-time Stripe price for a single server boost.
+    #[serde(default)]
+    pub boost_price_id: String,
     pub success_url: String,
     pub cancel_url: String,
 }

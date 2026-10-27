@@ -3,7 +3,10 @@
 use hmac::{Hmac, Mac};
 use iso8601_timestamp::Timestamp;
 use revolt_config::config;
-use revolt_database::{Database, PartialUser, Subscription};
+use revolt_database::{
+    mongodb::bson::{doc, DateTime, Document},
+    Database, PartialUser, Subscription,
+};
 use revolt_models::v0::UserBadges;
 use revolt_result::{create_error, Result};
 use revolt_rocket_okapi::request::OpenApiFromRequest;
@@ -11,6 +14,7 @@ use rocket::{data::ToByteUnit, http::Status, request::FromRequest, Data, Request
 use serde::Deserialize;
 use sha2::Sha256;
 use std::time::{SystemTime, UNIX_EPOCH};
+use ulid::Ulid;
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -76,6 +80,61 @@ fn active_subscription(event_type: &str, object: &serde_json::Value) -> Option<b
     }
 }
 
+async fn handle_boost_purchase(
+    db: &State<Database>,
+    event: &StripeEvent,
+) -> Result<Status> {
+    let object = &event.data.object;
+    if object.get("payment_status").and_then(serde_json::Value::as_str) != Some("paid") {
+        return Ok(Status::Ok);
+    }
+    let metadata = object.get("metadata");
+    if metadata
+        .and_then(|metadata| metadata.get("purchase_type"))
+        .and_then(serde_json::Value::as_str)
+        != Some("server_boost")
+    {
+        return Ok(Status::Ok);
+    }
+    let Some(account_id) = metadata
+        .and_then(|metadata| metadata.get("tailstalk_account_id"))
+        .and_then(serde_json::Value::as_str)
+    else {
+        return Ok(Status::Ok);
+    };
+    let Some(server_id) = metadata
+        .and_then(|metadata| metadata.get("server_id"))
+        .and_then(serde_json::Value::as_str)
+    else {
+        return Ok(Status::Ok);
+    };
+    let Database::MongoDb(mongo) = db.inner() else {
+        return Err(create_error!(InternalError));
+    };
+    if mongo
+        .col::<Document>("server_boosts")
+        .find_one(doc! { "stripe_event_id": &event.id })
+        .await
+        .map_err(|_| create_error!(InternalError))?
+        .is_some()
+    {
+        return Ok(Status::Ok);
+    }
+    mongo
+        .col::<Document>("server_boosts")
+        .insert_one(doc! {
+            "_id": Ulid::new().to_string(),
+            "server_id": server_id,
+            "user_id": account_id,
+            "source": "purchased",
+            "stripe_event_id": &event.id,
+            "created_at": DateTime::now(),
+        })
+        .await
+        .map_err(|_| create_error!(InternalError))?;
+    Ok(Status::Ok)
+}
+
 /// Accept Stripe subscription lifecycle events and award the Supporter badge.
 #[openapi(tag = "Webhooks")]
 #[post("/stripe", data = "<data>")]
@@ -98,6 +157,9 @@ pub async fn stripe_webhook(
     }
     let event: StripeEvent = serde_json::from_slice(&body.value)
         .map_err(|_| create_error!(FailedValidation { error: "Invalid Stripe payload".to_owned() }))?;
+    if event.event_type == "checkout.session.completed" {
+        return handle_boost_purchase(db, &event).await;
+    }
     let Some(active) = active_subscription(&event.event_type, &event.data.object) else {
         return Ok(Status::Ok);
     };
@@ -121,6 +183,17 @@ pub async fn stripe_webhook(
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false);
     if !active {
+        // Stripe cancellation events must never remove a gift entitlement.
+        // Only clear the account when the event belongs to its current Stripe
+        // subscription (older accounts may not have the provider id stored).
+        let is_current_stripe_subscription = account.subscription.as_ref().is_some_and(|subscription| {
+            subscription.provider == "stripe"
+                && (subscription.provider_subscription_id.as_deref() == subscription_id.as_deref()
+                    || subscription.provider_subscription_id.is_none())
+        });
+        if !is_current_stripe_subscription {
+            return Ok(Status::Ok);
+        }
         account.subscription = None;
         account.save(db).await?;
         let mut user = db.fetch_user(account_id).await?;
