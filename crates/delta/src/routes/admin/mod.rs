@@ -3,6 +3,7 @@ use rocket::Route;
 
 pub(crate) mod auth;
 mod reports;
+mod profile_decorations;
 mod stats;
 mod users;
 mod whatsnew;
@@ -13,6 +14,8 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         reports::admin_reports,
         reports::admin_resolve_report,
         reports::admin_dismiss_report,
+        profile_decorations::list,
+        profile_decorations::create,
         users::admin_search_users,
         users::admin_generate_password_reset,
         users::admin_set_badge,
