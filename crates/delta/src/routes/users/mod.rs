@@ -13,6 +13,7 @@ mod fetch_user_flags;
 mod find_mutual;
 mod get_default_avatar;
 mod open_dm;
+mod profile_decorations;
 mod remove_friend;
 mod send_friend_request;
 mod unblock_user;
@@ -31,6 +32,12 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         fetch_profile::profile,
         warnings::get_warnings,
         xp::fetch,
+        profile_decorations::list,
+        profile_decorations::purchase,
+        profile_decorations::equip,
+        profile_decorations::unequip,
+        profile_decorations::create,
+        profile_decorations::update,
         // Direct Messaging
         fetch_dms::direct_messages,
         open_dm::open_dm,

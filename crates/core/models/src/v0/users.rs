@@ -165,6 +165,9 @@ auto_derived!(
         /// Background visible on user's profile
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         pub background: Option<File>,
+        /// URL of the user's selected avatar decoration.
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        pub avatar_decoration: Option<String>,
     }
 
     /// User badge bitfield
