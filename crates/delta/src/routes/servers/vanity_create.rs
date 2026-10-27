@@ -1,4 +1,5 @@
 use revolt_database::{
+    mongodb::bson::doc,
     util::{permissions::DatabasePermissionQuery, reference::Reference},
     AuditLogEntryAction, Database, Invite, User,
 };
@@ -9,7 +10,6 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use std::str::FromStr;
 use ulid::Ulid;
-
 use crate::util::audit_log_reason::AuditLogReason;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -40,6 +40,24 @@ pub async fn create(
     calculate_server_permissions(&mut query)
         .await
         .throw_if_lacking_channel_permission(ChannelPermission::ManageServer)?;
+
+    // Vanity URLs unlock at server boost level 1 (two boosts). Boosts can be
+    // earned with XP or purchased individually; Premium is not required.
+    let boost_count = match db.inner() {
+        revolt_database::Database::MongoDb(mongo) => mongo
+            .count_documents(
+                "server_boosts",
+                doc! { "server_id": &server.id },
+            )
+            .await
+            .map_err(|_| create_error!(InternalError))?,
+        _ => return Err(create_error!(InternalError)),
+    };
+    if boost_count < 2 {
+        return Err(create_error!(FailedValidation {
+            error: "Your server needs at least 2 boosts to unlock a vanity URL.".to_string()
+        }));
+    }
 
     if db.fetch_member_count(&server.id).await? < 5 {
         return Err(create_error!(FailedValidation {
