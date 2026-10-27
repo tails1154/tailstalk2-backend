@@ -17,6 +17,8 @@ use rocket::{serde::json::Json, State};
 use serde::Serialize;
 use ulid::Ulid;
 
+use crate::routes::users::xp;
+
 const COLLECTION: &str = "server_boosts";
 const PREMIUM_BOOSTS: i64 = 2;
 
@@ -34,6 +36,8 @@ pub struct ServerBoostSummary {
     pub next_level: Option<u8>,
     pub user_boosts: Vec<ServerBoost>,
     pub available_premium_boosts: i64,
+    pub user_level: i64,
+    pub boost_cost_levels: i64,
     pub is_premium: bool,
     pub progress_enabled: bool,
     pub can_manage: bool,
@@ -140,6 +144,7 @@ pub async fn fetch(
     let user_boosts = records(db, &server.id, Some(&user.id)).await?;
     let account = db.fetch_account(&user.id).await?;
     let premium = active_premium(&account);
+    let user_xp = xp::read(db, &user.id).await?;
     let mut permissions = DatabasePermissionQuery::new(db, &user).server(&server);
     let can_manage = calculate_server_permissions(&mut permissions)
         .await
@@ -161,6 +166,8 @@ pub async fn fetch(
         } else {
             0
         },
+        user_level: user_xp.level,
+        boost_cost_levels: 1,
         is_premium: premium,
         progress_enabled: progress_enabled(db, &server.id).await?,
         can_manage,
@@ -199,7 +206,7 @@ pub async fn update_settings(
     fetch(db, user, Reference::from_unchecked(&server.id)).await
 }
 
-/// Assign one of the current user's Premium boost slots to this server.
+/// Spend one XP level to assign a boost to this server.
 #[openapi(tag = "Server Information")]
 #[post("/<target>/boosts")]
 pub async fn add(
@@ -208,17 +215,22 @@ pub async fn add(
     target: Reference<'_>,
 ) -> Result<Json<ServerBoostSummary>> {
     let server = server_for_user(db, &user, target).await?;
-    let account = db.fetch_account(&user.id).await?;
-    if !active_premium(&account) {
-        return Err(create_error!(FeatureDisabled { feature: "Premium server boosts".to_owned() }));
-    }
     let mongo = mongo(db).await?;
-    let assigned = mongo
-        .count_documents(COLLECTION, doc! { "user_id": &user.id, "source": "subscription" })
+    let user_xp = xp::read(db, &user.id).await?;
+    let cost = xp::xp_for_level(user_xp.level);
+    if user_xp.level <= 1 || cost <= 0 {
+        return Err(create_error!(FailedValidation { error: "You need another XP level to add a boost".to_owned() }));
+    }
+    let spent = mongo
+        .col::<Document>("user_xp")
+        .update_one(
+            doc! { "_id": &user.id, "xp": { "$gte": cost } },
+            doc! { "$inc": { "xp": -cost } },
+        )
         .await
         .map_err(|_| create_error!(InternalError))?;
-    if assigned >= PREMIUM_BOOSTS as u64 {
-        return Err(create_error!(FailedValidation { error: "You have no Premium boosts available".to_owned() }));
+    if spent.matched_count == 0 {
+        return Err(create_error!(FailedValidation { error: "You need another XP level to add a boost".to_owned() }));
     }
 
     let id = Ulid::new().to_string();
@@ -228,7 +240,7 @@ pub async fn add(
             "_id": &id,
             "server_id": &server.id,
             "user_id": &user.id,
-            "source": "subscription",
+            "source": "level",
             "created_at": DateTime::now(),
         })
         .await

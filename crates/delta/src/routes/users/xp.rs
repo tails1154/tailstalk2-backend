@@ -12,6 +12,10 @@ use serde::{Deserialize, Serialize};
 
 pub const MESSAGE_XP: i64 = 5;
 
+// XP required to reach each level. The first few steps intentionally ramp up
+// quickly: 5 XP, then 10 more, then 50 more. Later levels continue doubling.
+const LEVEL_COSTS: &[i64] = &[0, 5, 10, 50, 100, 200, 400, 800, 1600];
+
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 pub struct XPSettings {
     pub enabled: bool,
@@ -49,17 +53,49 @@ pub struct XPLeaderboardEntry {
     pub level: i64,
 }
 
+pub(crate) fn level_for_xp(xp: i64) -> i64 {
+    let mut level = 1_i64;
+    let mut threshold = 0_i64;
+    for (index, cost) in LEVEL_COSTS.iter().enumerate().skip(1) {
+        threshold += *cost;
+        if xp < threshold {
+            break;
+        }
+        level = index as i64 + 1;
+    }
+    level
+}
+
+pub(crate) fn xp_for_level(level: i64) -> i64 {
+    if level <= 1 {
+        return 0;
+    }
+    let mut threshold = 0_i64;
+    for cost in LEVEL_COSTS.iter().skip(1).take((level - 1) as usize) {
+        threshold = threshold.saturating_add(*cost);
+    }
+    if level as usize <= LEVEL_COSTS.len() {
+        return threshold;
+    }
+    let mut cost = *LEVEL_COSTS.last().unwrap_or(&1600);
+    for _ in LEVEL_COSTS.len()..level as usize {
+        cost = cost.saturating_mul(2);
+        threshold = threshold.saturating_add(cost);
+    }
+    threshold
+}
+
 fn response(user_id: String, xp: i64) -> XPResponse {
-    let level = xp.div_euclid(100) + 1;
+    let level = level_for_xp(xp);
     XPResponse {
         user_id,
         xp,
         level,
-        next_level_xp: level * 100,
+        next_level_xp: xp_for_level(level + 1),
     }
 }
 
-async fn read(db: &Database, user_id: &str) -> Result<XPResponse> {
+pub(crate) async fn read(db: &Database, user_id: &str) -> Result<XPResponse> {
     let xp = match db {
         Database::MongoDb(mongo) => mongo
             .col::<Document>("user_xp")
@@ -184,7 +220,7 @@ pub async fn leaderboard(
         rank: index as i64 + 1,
         user_id,
         xp,
-        level: xp.div_euclid(100) + 1,
+            level: level_for_xp(xp),
     }).collect()))
 }
 
