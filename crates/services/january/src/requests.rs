@@ -12,7 +12,7 @@ use revolt_config::{config, report_internal_error};
 use revolt_files::{create_thumbnail, decode_image, image_size_vec, is_valid_image, video_size};
 use revolt_models::v0::{Embed, Image, ImageSize, Video};
 use revolt_result::{create_error, Error, Result, ToRevoltError};
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::{
     io::{Cursor, Write},
     str::FromStr,
@@ -286,7 +286,22 @@ impl Request {
         if let Some(hit) = EMBED_CACHE.get(&url).await {
             Ok(hit)
         } else {
-            let request = Request::new_from_str(&url).await?;
+            // Gifbox media is publicly exposed through Caddy, but January runs
+            // inside the compose network. Fetching the public HTTPS URL from
+            // that container can fail on the host's TLS/DNS path. Use the
+            // internal Gifbox service only for fetching bytes while retaining
+            // the public URL in the returned embed.
+            let request_url = Url::parse(&url)
+                .ok()
+                .filter(|media_url| {
+                    media_url.host_str() == Some("tails1154.com")
+                        && media_url.port() == Some(9961)
+                        && media_url.path().starts_with("/media/")
+                })
+                .map(|media_url| format!("http://gifbox:14706{}", media_url.path()))
+                .unwrap_or_else(|| url.clone());
+
+            let request = Request::new_from_str(&request_url).await?;
             let embed = match (request.mime.type_(), request.mime.subtype()) {
                 (_, mime::HTML) => {
                     let content_type = request
@@ -419,6 +434,20 @@ impl Request {
     }
 
     pub async fn url_is_blacklisted(url: &Url) -> Result<IPRequest> {
+        // This is an internal, fixed-purpose compose-network hop used when
+        // generating embeds for TailsTalk Gifbox media. It never accepts a
+        // user-controlled host or path outside the media endpoint.
+        if url.host_str() == Some("gifbox")
+            && url.port() == Some(14706)
+            && url.path().starts_with("/media/")
+        {
+            return Ok(IPRequest {
+                url: url.clone(),
+                ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                blocked: false,
+            });
+        }
+
         let mut resolved_address: Option<IpAddr> = None;
 
         if let Some(host) = url.host() {
