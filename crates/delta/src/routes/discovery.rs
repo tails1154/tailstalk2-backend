@@ -21,6 +21,7 @@ pub struct DiscoveryListing {
     pub category: String,
     pub invite: Option<String>,
     pub members: i64,
+    pub boost_level: u8,
     pub status: String,
 }
 
@@ -61,8 +62,26 @@ fn listing_from_doc(d: &Document) -> Option<DiscoveryListing> {
             .and_then(invite_code)
             .map(|code| format!("{PUBLIC_INVITE_BASE}{code}")),
         members: d.get_i64("members").unwrap_or(0),
+        boost_level: d.get_i64("boost_level").unwrap_or(0).clamp(0, 3) as u8,
         status: d.get_str("status").unwrap_or("pending").to_string(),
     })
+}
+
+async fn server_boost_level(db: &Database, server_id: &str) -> u8 {
+    let count = match db {
+        Database::MongoDb(mongo) => mongo
+            .count_documents("server_boosts", doc! { "server_id": server_id })
+            .await
+            .unwrap_or(0),
+        _ => 0,
+    };
+
+    match count {
+        0..=1 => 0,
+        2..=4 => 1,
+        5..=9 => 2,
+        _ => 3,
+    }
 }
 
 async fn load(db: &Database) -> Result<Vec<Document>> {
@@ -113,7 +132,16 @@ pub async fn list(db: &State<Database>, query: Option<String>) -> Result<Json<Ve
                 || entry.description.to_lowercase().contains(&query)
         })
         .collect();
-    entries.sort_by(|a, b| b.members.cmp(&a.members));
+    for entry in &mut entries {
+        if entry.kind == "server" {
+            entry.boost_level = server_boost_level(db, &entry.target_id).await;
+        }
+    }
+    entries.sort_by(|a, b| {
+        b.boost_level
+            .cmp(&a.boost_level)
+            .then_with(|| b.members.cmp(&a.members))
+    });
     Ok(Json(entries))
 }
 
@@ -153,6 +181,7 @@ pub async fn submit_server(
         category: category.unwrap_or_default(),
         invite,
         members,
+        boost_level: server_boost_level(db, &server.id).await,
         status: "pending".to_string(),
     };
     let mut entries = load(db).await?;
@@ -186,6 +215,7 @@ pub async fn submit_bot(db: &State<Database>, user: User, bot_id: String) -> Res
         category: "bot".to_string(),
         invite: None,
         members: 0,
+        boost_level: 0,
         status: "pending".to_string(),
     };
     let mut entries = load(db).await?;
