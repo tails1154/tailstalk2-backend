@@ -62,7 +62,7 @@ fn listing_from_doc(d: &Document) -> Option<DiscoveryListing> {
             .and_then(invite_code)
             .map(|code| format!("{PUBLIC_INVITE_BASE}{code}")),
         members: d.get_i64("members").unwrap_or(0),
-        boost_level: d.get_i64("boost_level").unwrap_or(0).clamp(0, 3) as u8,
+        boost_level: d.get_i64("boost_level").unwrap_or(0).clamp(0, 10) as u8,
         status: d.get_str("status").unwrap_or("pending").to_string(),
     })
 }
@@ -80,7 +80,14 @@ async fn server_boost_level(db: &Database, server_id: &str) -> u8 {
         0..=1 => 0,
         2..=4 => 1,
         5..=9 => 2,
-        _ => 3,
+        10..=14 => 3,
+        15..=19 => 4,
+        20..=29 => 5,
+        30..=39 => 6,
+        40..=54 => 7,
+        55..=74 => 8,
+        75..=99 => 9,
+        _ => 10,
     }
 }
 
