@@ -175,7 +175,7 @@ pub async fn submit_server(
     let entry = DiscoveryListing {
         id: Ulid::new().to_string(),
         kind: "server".to_string(),
-        target_id: server.id,
+        target_id: server.id.clone(),
         name: server.name,
         description: description.unwrap_or_default(),
         category: category.unwrap_or_default(),
