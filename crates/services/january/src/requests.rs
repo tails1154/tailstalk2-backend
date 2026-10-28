@@ -97,6 +97,21 @@ impl From<IPRequest> for Url {
 
 struct CachedDnsResolver {}
 
+/// Route public TailsTalk Gifbox media to the internal compose service when
+/// January fetches it. The original URL is still retained in generated
+/// embeds so clients can display it publicly.
+fn internal_media_url(url: &str) -> String {
+    Url::parse(url)
+        .ok()
+        .filter(|media_url| {
+            media_url.host_str() == Some("tails1154.com")
+                && media_url.port() == Some(9961)
+                && media_url.path().starts_with("/media/")
+        })
+        .map(|media_url| format!("http://gifbox:14706{}", media_url.path()))
+        .unwrap_or_else(|| url.to_owned())
+}
+
 impl reqwest::dns::Resolve for CachedDnsResolver {
     fn resolve(&self, name: Name) -> reqwest::dns::Resolving {
         Box::pin(async move {
@@ -137,10 +152,15 @@ pub struct Request {
 impl Request {
     /// Proxy a given URL
     pub async fn proxy_file(url: &str) -> Result<(String, Vec<u8>)> {
+        // Public Gifbox media is served through Caddy, but January runs inside
+        // the same Docker network. Fetch it through the internal service name
+        // to avoid routing the proxy request back through the public gateway.
+        let fetch_url = internal_media_url(url);
+
         if let Some(hit) = PROXY_CACHE.get(url).await {
             hit
         } else {
-            let Request { response, mime } = Request::new_from_str(url).await?;
+            let Request { response, mime } = Request::new_from_str(&fetch_url).await?;
 
             if matches!(mime.type_(), mime::IMAGE | mime::VIDEO) {
                 let bytes = report_internal_error!(response.bytes().await);
@@ -291,15 +311,7 @@ impl Request {
             // that container can fail on the host's TLS/DNS path. Use the
             // internal Gifbox service only for fetching bytes while retaining
             // the public URL in the returned embed.
-            let request_url = Url::parse(&url)
-                .ok()
-                .filter(|media_url| {
-                    media_url.host_str() == Some("tails1154.com")
-                        && media_url.port() == Some(9961)
-                        && media_url.path().starts_with("/media/")
-                })
-                .map(|media_url| format!("http://gifbox:14706{}", media_url.path()))
-                .unwrap_or_else(|| url.clone());
+            let request_url = internal_media_url(&url);
 
             let request = Request::new_from_str(&request_url).await?;
             let embed = match (request.mime.type_(), request.mime.subtype()) {
