@@ -3,21 +3,30 @@ use rocket::Route;
 
 pub(crate) mod auth;
 mod reports;
-mod profile_decorations;
+mod servers;
 mod stats;
+mod gifts;
+mod subscriptions;
+mod profile_decorations;
 mod users;
 mod whatsnew;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
         stats::admin_stats,
+        gifts::admin_create_gift,
+        subscriptions::admin_subscriptions,
+        subscriptions::admin_update_subscription,
+        profile_decorations::list,
+        profile_decorations::create,
         reports::admin_reports,
         reports::admin_resolve_report,
         reports::admin_dismiss_report,
-        profile_decorations::list,
-        profile_decorations::create,
+        servers::admin_servers,
+        servers::admin_suspend_server,
+        servers::admin_delete_server,
+        servers::admin_create_server_invite,
         users::admin_search_users,
-        users::admin_generate_password_reset,
         users::admin_set_badge,
         users::admin_ban_user,
         users::admin_unban_user,

@@ -166,3 +166,4 @@ pub async fn update(db: &State<Database>, user: User, decoration_id: String, dat
     if !set.is_empty() { mongo(db)?.col::<Document>(DECORATIONS).update_one(doc! { "_id": &decoration_id }, doc! { "$set": set }).await.map_err(|_| create_error!(InternalError))?; }
     Ok(Json(json!({ "ok": true })))
 }
+

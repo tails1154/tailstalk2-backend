@@ -1609,6 +1609,10 @@ impl From<crate::Account> for AccountInfo {
                 active_until: subscription.active_until,
                 cancel_at_period_end: subscription.cancel_at_period_end,
             }),
+            cash_payment_request: item.cash_payment_request.map(|request| CashPaymentRequest {
+                status: request.status,
+                requested_at: request.requested_at,
+            }),
         }
     }
 }

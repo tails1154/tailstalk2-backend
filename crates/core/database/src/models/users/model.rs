@@ -137,7 +137,7 @@ auto_derived!(
         /// Background visible on user's profile
         #[serde(skip_serializing_if = "Option::is_none")]
         pub background: Option<File>,
-        /// URL of the user's selected avatar decoration.
+        /// URL of the equipped avatar decoration
         #[serde(skip_serializing_if = "Option::is_none")]
         pub avatar_decoration: Option<String>,
     }
