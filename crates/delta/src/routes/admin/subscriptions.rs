@@ -79,5 +79,17 @@ pub async fn admin_update_subscription(
         )
         .await
         .map_err(|_| create_error!(InternalError))?;
+    crate::util::system_message::send_system_dm(
+        db.inner(),
+        &account_id,
+        format!(
+            "Your TailsTalk 2 Premium cash payment request was {}.",
+            match data.status.as_str() {
+                "approved" | "completed" => "accepted",
+                _ => "declined",
+            }
+        ),
+    )
+    .await;
     Ok(EmptyResponse)
 }

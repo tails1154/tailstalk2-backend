@@ -92,6 +92,21 @@ async fn decide(_admin: crate::routes::admin::auth::AdminUser, db: &State<Databa
     document.insert("admin_response", data.and_then(|value| value.into_inner().response).unwrap_or_default());
     let request = from_doc(document).ok_or(create_error!(InternalError))?;
     save(db.inner(), entries).await?;
+    crate::util::system_message::send_system_dm(
+        db.inner(),
+        &request.author_id,
+        format!(
+            "Your feature request \"{}\" was {}.{}",
+            request.title,
+            if status == "approved" { "approved" } else { "denied" },
+            if request.admin_response.is_empty() {
+                String::new()
+            } else {
+                format!(" Admin response: {}", request.admin_response)
+            }
+        ),
+    )
+    .await;
     Ok(Json(request))
 }
 

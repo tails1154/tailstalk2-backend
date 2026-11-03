@@ -250,7 +250,9 @@ async fn set_status(db: &Database, id: &str, status: &str) -> Result<Json<Discov
 #[openapi(tag = "Admin")]
 #[post("/discovery/<id>/deny")]
 pub async fn deny(_admin: AdminUser, db: &State<Database>, id: String) -> Result<Json<DiscoveryListing>> {
-    set_status(db, &id, "denied").await
+    let listing = set_status(db, &id, "denied").await?.into_inner();
+    notify_discovery_decision(db.inner(), &listing, false).await;
+    Ok(Json(listing))
 }
 
 #[openapi(tag = "Admin")]
@@ -264,5 +266,27 @@ pub async fn approve(_admin: AdminUser, db: &State<Database>, id: String) -> Res
         let mut bot = db.fetch_bot(&listing.target_id).await?;
         bot.update(db, PartialBot { public: Some(true), discoverable: Some(true), ..Default::default() }, vec![]).await?;
     }
+    notify_discovery_decision(db.inner(), &listing, true).await;
     Ok(Json(listing))
+}
+
+async fn notify_discovery_decision(db: &Database, listing: &DiscoveryListing, accepted: bool) {
+    let owner_id = if listing.kind == "server" {
+        db.fetch_server(&listing.target_id).await.ok().map(|server| server.owner)
+    } else {
+        db.fetch_bot(&listing.target_id).await.ok().map(|bot| bot.owner)
+    };
+    if let Some(owner_id) = owner_id {
+        crate::util::system_message::send_system_dm(
+            db,
+            &owner_id,
+            format!(
+                "Your {} \"{}\" was {} for TailsTalk 2 discovery.",
+                listing.kind,
+                listing.name,
+                if accepted { "accepted" } else { "denied" }
+            ),
+        )
+        .await;
+    }
 }
