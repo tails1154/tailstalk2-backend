@@ -44,6 +44,12 @@ pub async fn complete(
         })
     })?;
 
+    if crate::util::username::is_disallowed_username(&data.username) {
+        return Err(create_error!(FailedValidation {
+            error: "You cannot use that username.".to_owned()
+        }));
+    }
+
     Ok(Json(
         User::create(db, data.username, session.user_id, None)
             .await?

@@ -42,6 +42,12 @@ pub async fn change_username(
         })
     })?;
 
+    if crate::util::username::is_disallowed_username(&data.username) {
+        return Err(create_error!(FailedValidation {
+            error: "You cannot use that username.".to_owned()
+        }));
+    }
+
     account
         .verify_password(&data.password)
         .map_err(|_| create_error!(InvalidCredentials))?;

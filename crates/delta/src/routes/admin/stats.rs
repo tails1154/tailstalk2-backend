@@ -40,7 +40,7 @@ pub async fn admin_stats(_admin: AdminUser, db: &State<Database>) -> Result<Json
         count_collection(&data, "channels"),
         count_collection(&data, "messages"),
         count_collection(&data, "bots"),
-        count_collection(&data, "safety_reports"),
+        count_open_reports(&data),
     );
 
     Ok(Json(AdminStats {
@@ -51,4 +51,14 @@ pub async fn admin_stats(_admin: AdminUser, db: &State<Database>) -> Result<Json
         bots,
         reports,
     }))
+}
+
+async fn count_open_reports(db: &Database) -> u64 {
+    match db {
+        Database::MongoDb(mongo) => mongo
+            .count_documents("safety_reports", doc! { "status": "Created" })
+            .await
+            .unwrap_or(0),
+        _ => 0,
+    }
 }

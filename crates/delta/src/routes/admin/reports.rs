@@ -1,6 +1,6 @@
 use revolt_database::{
     mongodb::bson::{self, doc},
-    Database,
+    Channel, Database, Message,
 };
 use revolt_result::Result;
 use rocket::serde::json::Json;
@@ -29,6 +29,9 @@ pub struct AdminReport {
 #[derive(Deserialize, JsonSchema, Debug)]
 pub struct ResolveReportData {
     pub notes: Option<String>,
+    pub action: Option<String>,
+    pub action_reason: Option<String>,
+    pub suspend_hours: Option<i64>,
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]
@@ -173,6 +176,102 @@ pub async fn admin_resolve_report(
 ) -> Result<Json<serde_json::Value>> {
     match db.inner() {
         Database::MongoDb(mongo) => {
+            let report = mongo
+                .col::<bson::Document>("safety_reports")
+                .find_one(doc! { "_id": &id })
+                .await
+                .map_err(|_| revolt_result::create_error!(InternalError))?
+                .ok_or(revolt_result::create_error!(NotFound))?;
+
+            let reported_user_id = match report
+                .get_document("content")
+                .ok()
+                .and_then(|content| content.get_str("type").ok())
+            {
+                Some("User") => report
+                    .get_document("content")
+                    .ok()
+                    .and_then(|content| content.get_str("id").ok())
+                    .map(str::to_owned),
+                Some("Message") => mongo
+                    .col::<bson::Document>("safety_snapshots")
+                    .find_one(doc! { "report_id": &id, "content.author": { "$exists": true } })
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|snapshot| snapshot.get_document("content").ok().cloned())
+                    .and_then(|content| content.get_str("author").ok().map(str::to_owned)),
+                Some("Server") => {
+                    let server_id = report
+                        .get_document("content")
+                        .ok()
+                        .and_then(|content| content.get_str("id").ok());
+                    match server_id {
+                        Some(server_id) => mongo
+                            .col::<bson::Document>("servers")
+                            .find_one(doc! { "_id": server_id })
+                            .await
+                            .ok()
+                            .flatten()
+                            .and_then(|server| server.get_str("owner").ok().map(str::to_owned)),
+                        None => None,
+                    }
+                }
+                _ => None,
+            };
+
+            if let (Some(action), Some(target_id)) =
+                (data.action.as_deref(), reported_user_id.as_deref())
+            {
+                let reason = data
+                    .action_reason
+                    .as_deref()
+                    .unwrap_or("Action taken after review of a report.");
+                match action {
+                    "warn" => {
+                        mongo
+                            .col::<bson::Document>("users")
+                            .update_one(
+                                doc! { "_id": &target_id },
+                                doc! { "$push": { "admin_warnings": {
+                                    "reason": reason,
+                                    "created_at": chrono::Utc::now().to_rfc3339(),
+                                } } },
+                            )
+                            .await
+                            .map_err(|_| revolt_result::create_error!(InternalError))?;
+                    }
+                    "suspend" => {
+                        let hours = data.suspend_hours.unwrap_or(24).max(1);
+                        let until = iso8601_timestamp::Timestamp::now_utc()
+                            + iso8601_timestamp::Duration::hours(hours);
+                        mongo
+                            .col::<bson::Document>("users")
+                            .update_one(
+                                doc! { "_id": &target_id },
+                                doc! { "$set": {
+                                    "flags": 1i32,
+                                    "suspended_until": bson::to_bson(&until).unwrap_or_default(),
+                                    "admin_suspend_reason": reason,
+                                } },
+                            )
+                            .await
+                            .map_err(|_| revolt_result::create_error!(InternalError))?;
+                    }
+                    "ban" => {
+                        let mut set = doc! { "flags": 4i32 };
+                        set.insert("admin_ban_reason", reason);
+                        mongo
+                            .col::<bson::Document>("users")
+                            .update_one(doc! { "_id": &target_id }, doc! { "$set": set })
+                            .await
+                            .map_err(|_| revolt_result::create_error!(InternalError))?;
+                    }
+                    "none" => {}
+                    _ => return Err(revolt_result::create_error!(InvalidProperty)),
+                }
+            }
+
             let mut update = doc! {
                 "status": "Resolved",
                 "closed_at": bson::to_bson(
@@ -187,6 +286,39 @@ pub async fn admin_resolve_report(
                 .update_one(doc! { "_id": &id }, doc! { "$set": update })
                 .await
                 .map_err(|_| revolt_result::create_error!(InternalError))?;
+
+            // Notify the reporter from the dedicated System account. This is intentionally
+            // best-effort: report resolution must still succeed if the account is unavailable.
+            if let (Ok(reporter), Ok(system_user)) = (
+                db.fetch_user(report.get_str("author_id").unwrap_or_default()).await,
+                db.fetch_user("01M6HG5PZABFWZHAKVZ1KM896S").await,
+            ) {
+                if let Ok(channel) = Channel::create_dm(db, &system_user, &reporter).await {
+                    let system_author = system_user.clone().into(db, Some(&system_user)).await;
+                    let system_model = system_user.clone().into_known_static(false).await;
+                    let mut message = Message {
+                        id: ulid::Ulid::new().to_string(),
+                        channel: channel.id().to_string(),
+                        author: system_user.id.clone(),
+                        content: Some(format!(
+                            "Your report to {} was acted upon. Thanks for keeping TailsTalk 2 safe!",
+                            reported_user_id.as_deref().unwrap_or("the reported account")
+                        )),
+                        ..Default::default()
+                    };
+                    let _ = message
+                        .send(
+                            db,
+                            None,
+                            revolt_models::v0::MessageAuthor::User(&system_author),
+                            Some(system_model),
+                            None,
+                            &channel,
+                            false,
+                        )
+                        .await;
+                }
+            }
         }
         _ => {}
     }
