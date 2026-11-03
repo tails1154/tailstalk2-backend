@@ -37,6 +37,11 @@ auto_derived_partial!(
         #[serde(default)]
         pub disabled: bool,
 
+        /// IP address observed during the first successful registration.
+        /// This is retained for abuse prevention and admin security review.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub registration_ip: Option<String>,
+
         /// Email verification status
         pub verification: EmailVerification,
 
@@ -55,8 +60,20 @@ auto_derived_partial!(
         /// Subscription entitlement granted by a payment provider.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub subscription: Option<Subscription>,
+
+        /// A manually reviewed request to pay for Premium with cash.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub cash_payment_request: Option<CashPaymentRequest>,
     },
     "PartialAccount"
+);
+
+auto_derived!(
+    /// A cash payment request awaiting manual review.
+    pub struct CashPaymentRequest {
+        pub status: String,
+        pub requested_at: Timestamp,
+    }
 );
 
 auto_derived!(
@@ -332,6 +349,7 @@ impl Account {
                 password,
 
                 disabled: false,
+                registration_ip: None,
                 verification: EmailVerification::Verified,
                 password_reset: None,
                 deletion: None,
@@ -339,6 +357,7 @@ impl Account {
 
                 mfa: Default::default(),
                 subscription: None,
+                cash_payment_request: None,
             };
 
             // Send email verification

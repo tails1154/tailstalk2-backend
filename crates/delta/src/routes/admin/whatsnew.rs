@@ -3,8 +3,8 @@ use revolt_database::{
     Database,
 };
 use revolt_result::Result;
-use rocket::State;
 use rocket::serde::json::Json;
+use rocket::State;
 use serde::{Deserialize, Serialize};
 
 use super::auth::AdminUser;

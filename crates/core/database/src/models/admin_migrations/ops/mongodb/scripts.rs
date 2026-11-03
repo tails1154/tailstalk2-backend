@@ -26,7 +26,7 @@ struct MigrationInfo {
     revision: i32,
 }
 
-pub const LATEST_REVISION: i32 = 56; // MUST BE +1 to last migration
+pub const LATEST_REVISION: i32 = 57; // MUST BE +1 to last migration
 
 pub async fn migrate_database(db: &MongoDb) {
     let migrations = db.col::<Document>("migrations");
@@ -1616,6 +1616,43 @@ pub async fn run_migrations(db: &MongoDb, revision: i32) -> i32 {
         }
     }
 
+    if revision <= 56 {
+        info!("Running migration [revision 56 / 26-10-2026]: Add cash payment request index");
+
+        db.db()
+            .run_command(doc! {
+                "createIndexes": "accounts",
+                "indexes": [{
+                    "key": { "cash_payment_request.status": 1_i32 },
+                    "name": "cash_payment_request_status"
+                }]
+            })
+            .await
+            .expect("Failed to create cash payment request index");
+    }
+
+    if revision <= 57 {
+        info!("Running migration [revision 57 / 26-10-2026]: Add Premium gift storage");
+
+        let _ = db.db().create_collection("premium_gifts").await;
+        db.db()
+            .run_command(doc! {
+                "createIndexes": "premium_gifts",
+                "indexes": [
+                    {
+                        "key": { "redeemed_by": 1_i32 },
+                        "name": "redeemed_by"
+                    },
+                    {
+                        "key": { "revoked": 1_i32 },
+                        "name": "revoked"
+                    }
+                ]
+            })
+            .await
+            .expect("Failed to create Premium gift indexes");
+    }
+
     if revision <= 54 {
         info!("Running migration [revision 54 / 19-08-2026]: Enforce unique usernames");
 
@@ -1647,21 +1684,6 @@ pub async fn run_migrations(db: &MongoDb, revision: i32) -> i32 {
             })
             .await
             .expect("Failed to enforce unique usernames.");
-    }
-
-    if revision <= 55 {
-        info!("Running migration [revision 55 / 27-10-2026]: Create profile decoration collections");
-
-        let _ = db.db().create_collection("profile_decorations").await;
-        let _ = db.db().create_collection("profile_decoration_ownership").await;
-        db.db().run_command(doc! {
-            "createIndexes": "profile_decoration_ownership",
-            "indexes": [{
-                "key": { "user_id": 1_i32, "decoration_id": 1_i32 },
-                "name": "user_decoration_unique",
-                "unique": true
-            }]
-        }).await.expect("Failed to index profile decoration ownership.");
     }
 
     // Reminder to update LATEST_REVISION when adding new migrations.

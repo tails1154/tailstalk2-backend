@@ -110,6 +110,8 @@ pub enum ErrorType {
     // ? Server related errors
     CantCreateServers,
     UnknownServer,
+    /// The server has been suspended by platform administrators.
+    ServerSuspended,
     InvalidRole,
     Banned,
     TooManyServers {

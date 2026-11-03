@@ -24,6 +24,14 @@ pub async fn ingress(
 ) -> Result<EmptyResponse> {
     log::debug!("received event: {body}");
 
+    // LiveKit can retry a webhook after the request body has already been
+    // consumed by a failed delivery. Treat that retry as acknowledged instead
+    // of returning 500 and making LiveKit retry it repeatedly for 15 seconds.
+    if body.trim().is_empty() {
+        log::warn!("ignoring empty LiveKit webhook body for node {node}");
+        return Ok(EmptyResponse);
+    }
+
     let config = revolt_config::config().await;
 
     let node_info = config

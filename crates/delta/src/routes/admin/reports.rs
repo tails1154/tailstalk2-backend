@@ -3,11 +3,11 @@ use revolt_database::{
     Database,
 };
 use revolt_result::Result;
-use rocket::State;
 use rocket::serde::json::Json;
+use rocket::State;
 use serde::{Deserialize, Serialize};
 
-use super::auth::AdminUser;
+use super::auth::ReportAccess;
 
 #[derive(Serialize, JsonSchema, Debug)]
 pub struct AdminReport {
@@ -22,6 +22,8 @@ pub struct AdminReport {
     pub additional_context: String,
     pub status: String,
     pub notes: String,
+    pub server_id: Option<String>,
+    pub server_name: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]
@@ -52,12 +54,11 @@ fn report_from_doc(doc: &bson::Document) -> Option<AdminReport> {
         content_name: String::new(),
         message_content: None,
         report_reason,
-        additional_context: doc
-            .get_str("additional_context")
-            .unwrap_or("")
-            .to_string(),
+        additional_context: doc.get_str("additional_context").unwrap_or("").to_string(),
         status: doc.get_str("status").unwrap_or("Created").to_string(),
         notes: doc.get_str("notes").unwrap_or("").to_string(),
+        server_id: None,
+        server_name: None,
     })
 }
 
@@ -67,7 +68,7 @@ fn report_from_doc(doc: &bson::Document) -> Option<AdminReport> {
 #[openapi(tag = "Admin")]
 #[get("/reports")]
 pub async fn admin_reports(
-    _admin: AdminUser,
+    _access: ReportAccess,
     db: &State<Database>,
 ) -> Result<Json<Vec<AdminReport>>> {
     let reports = match db.inner() {
@@ -98,21 +99,47 @@ pub async fn admin_reports(
                     }
 
                     let snapshots = mongo.col::<bson::Document>("safety_snapshots");
-                    if let Ok(snapshot) = snapshots
-                        .find_one(doc! { "report_id": &report.id })
-                        .await
+                    if let Ok(snapshot) = snapshots.find_one(doc! { "report_id": &report.id }).await
                     {
                         if let Some(snapshot) = snapshot {
                             if let Ok(content) = snapshot.get_document("content") {
-                                report.message_content = content
-                                    .get_str("content")
-                                    .ok()
-                                    .map(ToString::to_string);
+                                report.message_content =
+                                    content.get_str("content").ok().map(ToString::to_string);
                                 report.content_name = report
                                     .message_content
                                     .clone()
                                     .unwrap_or_else(|| report.content_id.clone());
+
+                                // Message snapshots retain their channel, which is enough to
+                                // associate a report with a server for admin grouping.
+                                if let Ok(channel_id) = content.get_str("channel") {
+                                    if let Ok(Some(channel)) = mongo
+                                        .col::<bson::Document>("channels")
+                                        .find_one(doc! { "_id": channel_id })
+                                        .await
+                                    {
+                                        report.server_id =
+                                            channel.get_str("server").ok().map(ToString::to_string);
+                                    }
+                                }
+                                if report.server_id.is_none()
+                                    && content.get_str("_type").ok() == Some("Server")
+                                {
+                                    report.server_id =
+                                        content.get_str("_id").ok().map(ToString::to_string);
+                                }
                             }
+                        }
+                    }
+
+                    if let Some(server_id) = &report.server_id {
+                        if let Ok(Some(server)) = mongo
+                            .col::<bson::Document>("servers")
+                            .find_one(doc! { "_id": server_id })
+                            .await
+                        {
+                            report.server_name =
+                                server.get_str("name").ok().map(ToString::to_string);
                         }
                     }
 
@@ -139,7 +166,7 @@ pub async fn admin_reports(
 #[openapi(tag = "Admin")]
 #[post("/reports/<id>/resolve", data = "<data>")]
 pub async fn admin_resolve_report(
-    _admin: AdminUser,
+    _access: ReportAccess,
     db: &State<Database>,
     id: String,
     data: Json<ResolveReportData>,
@@ -173,7 +200,7 @@ pub async fn admin_resolve_report(
 #[openapi(tag = "Admin")]
 #[post("/reports/<id>/dismiss", data = "<data>")]
 pub async fn admin_dismiss_report(
-    _admin: AdminUser,
+    _access: ReportAccess,
     db: &State<Database>,
     id: String,
     data: Json<DismissReportData>,

@@ -38,6 +38,7 @@ auto_derived!(
         pub id: String,
         pub email: String,
         pub subscription: Option<AccountSubscription>,
+        pub cash_payment_request: Option<CashPaymentRequest>,
     }
 
     pub struct AccountSubscription {
@@ -46,6 +47,11 @@ auto_derived!(
         pub active_until: iso8601_timestamp::Timestamp,
         #[serde(default)]
         pub cancel_at_period_end: bool,
+    }
+
+    pub struct CashPaymentRequest {
+        pub status: String,
+        pub requested_at: iso8601_timestamp::Timestamp,
     }
 
     /// # Password Reset

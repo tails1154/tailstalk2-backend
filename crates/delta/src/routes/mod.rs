@@ -12,6 +12,7 @@ mod customisation;
 pub(crate) mod discovery;
 pub(crate) mod feature_requests;
 mod gifs;
+mod gifts;
 mod invites;
 mod mfa;
 mod oauth;
@@ -44,6 +45,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
             "/channels" => channels::routes(),
             "/servers" => servers::routes(),
             "/invites" => invites::routes(),
+            "/gifts" => openapi_get_routes_spec![gifts::redeem_gift],
             "/custom" => customisation::routes(),
             "/safety" => safety::routes(),
             "/auth/account" => account::routes(),
@@ -67,6 +69,7 @@ pub fn mount(config: Settings, mut rocket: Rocket<Build>) -> Rocket<Build> {
             "/channels" => channels::routes(),
             "/servers" => servers::routes(),
             "/invites" => invites::routes(),
+            "/gifts" => openapi_get_routes_spec![gifts::redeem_gift],
             "/custom" => customisation::routes(),
             "/safety" => safety::routes(),
             "/auth/account" => account::routes(),

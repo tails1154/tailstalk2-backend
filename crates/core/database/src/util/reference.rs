@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use revolt_result::Result;
+use revolt_result::{create_error, Result};
 #[cfg(feature = "rocket-impl")]
 use rocket::request::FromParam;
 #[cfg(feature = "rocket-impl")]
@@ -42,7 +42,15 @@ impl<'a> Reference<'a> {
 
     /// Fetch channel from Ref
     pub async fn as_channel(&self, db: &Database) -> Result<Channel> {
-        db.fetch_channel(self.id).await
+        let channel = db.fetch_channel(self.id).await?;
+        if let Some(server_id) = channel.server() {
+            let server = db.fetch_server(server_id).await?;
+            if server.admin_suspended {
+                return Err(create_error!(ServerSuspended));
+            }
+        }
+
+        Ok(channel)
     }
 
     /// Fetch invite from Ref or create invite to server if discoverable
@@ -64,7 +72,13 @@ impl<'a> Reference<'a> {
                     .ok_or(create_error!(NotFound))?,
             })
         } else {
-            db.fetch_invite(self.id).await
+            let invite = db.fetch_invite(self.id).await?;
+            if let Invite::Server { server, .. } = &invite {
+                if db.fetch_server(server).await?.admin_suspended {
+                    return Err(create_error!(ServerSuspended));
+                }
+            }
+            Ok(invite)
         }
     }
 
@@ -90,7 +104,12 @@ impl<'a> Reference<'a> {
 
     /// Fetch server from Ref
     pub async fn as_server(&self, db: &Database) -> Result<Server> {
-        db.fetch_server(self.id).await
+        let server = db.fetch_server(self.id).await?;
+        if server.admin_suspended {
+            return Err(create_error!(ServerSuspended));
+        }
+
+        Ok(server)
     }
 
     /// Fetch user from Ref

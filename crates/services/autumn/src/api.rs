@@ -218,7 +218,7 @@ async fn upload_file(
             .ok()
             .and_then(|account| account.subscription)
             .is_some_and(|subscription| {
-                subscription.provider == "stripe"
+                (subscription.provider == "stripe" || subscription.provider == "gift")
                     && subscription.active_until > Timestamp::now_utc()
             })
     {

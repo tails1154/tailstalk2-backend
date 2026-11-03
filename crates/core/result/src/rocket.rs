@@ -48,6 +48,7 @@ impl<'r> Responder<'r, 'static> for Error {
 
             ErrorType::CantCreateServers => Status::Forbidden,
             ErrorType::UnknownServer => Status::NotFound,
+            ErrorType::ServerSuspended => Status::Forbidden,
             ErrorType::InvalidRole => Status::NotFound,
             ErrorType::Banned => Status::Forbidden,
             ErrorType::AlreadyInServer => Status::Conflict,

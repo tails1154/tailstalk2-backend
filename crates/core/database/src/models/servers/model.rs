@@ -61,8 +61,10 @@ auto_derived_partial!(
         /// Whether this server should be publicly discoverable
         #[serde(skip_serializing_if = "crate::if_false", default)]
         pub discoverable: bool,
-        /// Whether this server is suspended by a platform administrator
-        #[serde(skip_serializing_if = "crate::if_false", default)]
+
+        /// Whether this server is suspended by platform administrators.
+        /// This is intentionally never sent to regular clients.
+        #[serde(skip_serializing, default)]
         pub admin_suspended: bool,
     },
     "PartialServer"

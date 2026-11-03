@@ -30,6 +30,7 @@ pub async fn create_account(
     mut shield: ShieldValidationInput,
 ) -> Result<EmptyResponse> {
     let data = data.into_inner();
+    let registration_ip = shield.ip.clone();
 
     // Random jitter from 0-1000ms
     sleep(Duration::from_millis((rand::random::<f32>() * 1000.) as u64)).await;
@@ -59,7 +60,11 @@ pub async fn create_account(
     };
 
     // Create account
-    let account = Account::new(db, data.email, data.password, false).await?;
+    let mut account = Account::new(db, data.email, data.password, false).await?;
+    if account.registration_ip.is_none() {
+        account.registration_ip = registration_ip;
+        account.save(db).await?;
+    }
 
     // Use up the invite
     if let Some(mut invite) = invite {

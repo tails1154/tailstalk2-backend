@@ -5,8 +5,8 @@ use revolt_database::{
 };
 use revolt_config::config;
 use revolt_result::Result;
-use rocket::State;
 use rocket::serde::json::Json;
+use rocket::State;
 use serde::{Deserialize, Serialize};
 
 use super::auth::AdminUser;
@@ -51,6 +51,11 @@ pub struct BadgeUpdateData {
     pub enabled: bool,
 }
 
+#[derive(Deserialize, JsonSchema, Debug)]
+pub struct AdminAccessData {
+    pub enabled: bool,
+}
+
 impl AdminWarning {
     fn from_bson(arr: &bson::Array) -> Vec<AdminWarning> {
         arr.iter()
@@ -66,10 +71,7 @@ impl AdminWarning {
 }
 
 fn user_from_doc(doc: &bson::Document) -> Option<AdminUserInfo> {
-    let suspended = doc
-        .get_str("suspended_until")
-        .ok()
-        .map(|s| s.to_string());
+    let suspended = doc.get_str("suspended_until").ok().map(|s| s.to_string());
     let display = doc.get_str("display_name").ok().map(|s| s.to_string());
     let warnings = doc
         .get_array("admin_warnings")
@@ -128,6 +130,43 @@ pub async fn admin_set_badge(
         }
         _ => Ok(Json(serde_json::json!({ "badges": 0 }))),
     }
+}
+
+/// # Grant or revoke admin-panel access
+///
+/// Admin access is stored on the account and is enforced by the backend.
+#[openapi(tag = "Admin")]
+#[post("/users/<id>/admin-access", data = "<data>")]
+pub async fn admin_set_access(
+    admin: AdminUser,
+    db: &State<Database>,
+    id: String,
+    data: Json<AdminAccessData>,
+) -> Result<Json<serde_json::Value>> {
+    if id == admin.user_id && !data.enabled {
+        return Err(revolt_result::create_error!(FailedValidation {
+            error: "You cannot remove your own admin access.".to_owned(),
+        }));
+    }
+
+    match db.inner() {
+        Database::MongoDb(mongo) => {
+            let result = mongo
+                .col::<bson::Document>("users")
+                .update_one(
+                    doc! { "_id": &id },
+                    doc! { "$set": { "privileged": data.enabled } },
+                )
+                .await
+                .map_err(|_| revolt_result::create_error!(InternalError))?;
+            if result.matched_count == 0 {
+                return Err(revolt_result::create_error!(NotFound));
+            }
+        }
+        _ => {}
+    }
+
+    Ok(Json(serde_json::json!({ "privileged": data.enabled })))
 }
 
 /// # Search Users
@@ -209,17 +248,17 @@ pub async fn admin_ban_user(
     id: String,
     data: Option<Json<BanUserData>>,
 ) -> Result<Json<serde_json::Value>> {
-    let far_future = iso8601_timestamp::Timestamp::now_utc()
-        + iso8601_timestamp::Duration::days(36500i64);
-
     let reason = data.as_ref().and_then(|d| d.reason.clone());
+
+    // Disable through the account model so all active sessions are
+    // invalidated immediately instead of remaining usable.
+    let mut account = db.fetch_account(&id).await?;
+    account.disable(db).await?;
 
     match db.inner() {
         Database::MongoDb(mongo) => {
             let mut set = doc! {
-                "flags": 5i32,
-                "disabled": true,
-                "suspended_until": bson::to_bson(&far_future).unwrap_or_default(),
+                "flags": 4i32,
             };
             if let Some(ref r) = reason {
                 set.insert("admin_ban_reason", r.as_str());
@@ -230,14 +269,6 @@ pub async fn admin_ban_user(
                 .await
                 .map_err(|_| revolt_result::create_error!(InternalError))?;
 
-            mongo
-                .col::<bson::Document>("accounts")
-                .update_one(
-                    doc! { "_id": &id },
-                    doc! { "$set": { "disabled": true } },
-                )
-                .await
-                .map_err(|_| revolt_result::create_error!(InternalError))?;
         }
         _ => {}
     }
@@ -255,6 +286,10 @@ pub async fn admin_unban_user(
     db: &State<Database>,
     id: String,
 ) -> Result<Json<serde_json::Value>> {
+    let mut account = db.fetch_account(&id).await?;
+    account.disabled = false;
+    account.save(db).await?;
+
     match db.inner() {
         Database::MongoDb(mongo) => {
             mongo
@@ -272,14 +307,6 @@ pub async fn admin_unban_user(
                 .await
                 .map_err(|_| revolt_result::create_error!(InternalError))?;
 
-            mongo
-                .col::<bson::Document>("accounts")
-                .update_one(
-                    doc! { "_id": &id },
-                    doc! { "$set": { "disabled": false } },
-                )
-                .await
-                .map_err(|_| revolt_result::create_error!(InternalError))?;
         }
         _ => {}
     }
@@ -298,8 +325,8 @@ pub async fn admin_suspend_user(
     id: String,
     data: Json<SuspendUserData>,
 ) -> Result<Json<serde_json::Value>> {
-    let until = iso8601_timestamp::Timestamp::now_utc()
-        + iso8601_timestamp::Duration::hours(data.hours);
+    let until =
+        iso8601_timestamp::Timestamp::now_utc() + iso8601_timestamp::Duration::hours(data.hours);
 
     match db.inner() {
         Database::MongoDb(mongo) => {

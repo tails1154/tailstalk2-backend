@@ -1,7 +1,7 @@
 use revolt_database::{mongodb::bson::doc, Database};
 use revolt_result::Result;
-use rocket::State;
 use rocket::serde::json::Json;
+use rocket::State;
 use serde::Serialize;
 
 use super::auth::AdminUser;
@@ -18,9 +18,10 @@ pub struct AdminStats {
 
 async fn count_collection(db: &Database, collection: &'static str) -> u64 {
     match db {
-        Database::MongoDb(mongo) => {
-            mongo.count_documents(collection, doc! {}).await.unwrap_or(0)
-        }
+        Database::MongoDb(mongo) => mongo
+            .count_documents(collection, doc! {})
+            .await
+            .unwrap_or(0),
         _ => 0,
     }
 }
@@ -30,10 +31,7 @@ async fn count_collection(db: &Database, collection: &'static str) -> u64 {
 /// Fetch admin dashboard stats. Requires HTTP Basic Auth.
 #[openapi(tag = "Admin")]
 #[get("/")]
-pub async fn admin_stats(
-    _admin: AdminUser,
-    db: &State<Database>,
-) -> Result<Json<AdminStats>> {
+pub async fn admin_stats(_admin: AdminUser, db: &State<Database>) -> Result<Json<AdminStats>> {
     let data = db.inner().clone();
 
     let (users, servers, channels, messages, bots, reports) = tokio::join!(

@@ -86,6 +86,8 @@ impl TestHarness {
             mfa: Default::default(),
             password_reset: None,
             verification: EmailVerification::Verified,
+            subscription: None,
+            cash_payment_request: None,
         };
 
         self.db.save_account(&account).await.expect("`Account`");

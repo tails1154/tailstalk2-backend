@@ -45,6 +45,7 @@ impl IntoResponse for Error {
 
             ErrorType::CantCreateServers => StatusCode::FORBIDDEN,
             ErrorType::UnknownServer => StatusCode::NOT_FOUND,
+            ErrorType::ServerSuspended => StatusCode::FORBIDDEN,
             ErrorType::InvalidRole => StatusCode::NOT_FOUND,
             ErrorType::Banned => StatusCode::FORBIDDEN,
             ErrorType::AlreadyInServer => StatusCode::CONFLICT,
