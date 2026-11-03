@@ -289,6 +289,14 @@ pub async fn admin_resolve_report(
 
             // Notify the reporter from the dedicated System account. This is intentionally
             // best-effort: report resolution must still succeed if the account is unavailable.
+            let reported_user_name = match reported_user_id.as_deref() {
+                Some(target_id) => db
+                    .fetch_user(target_id)
+                    .await
+                    .map(|user| user.username)
+                    .unwrap_or_else(|_| "the reported account".to_owned()),
+                None => "the reported account".to_owned(),
+            };
             if let (Ok(reporter), Ok(system_user)) = (
                 db.fetch_user(report.get_str("author_id").unwrap_or_default()).await,
                 db.fetch_user("01M6HG5PZABFWZHAKVZ1KM896S").await,
@@ -302,7 +310,7 @@ pub async fn admin_resolve_report(
                         author: system_user.id.clone(),
                         content: Some(format!(
                             "Your report to {} was acted upon. Thanks for keeping TailsTalk 2 safe!",
-                            reported_user_id.as_deref().unwrap_or("the reported account")
+                            reported_user_name
                         )),
                         ..Default::default()
                     };
