@@ -1,4 +1,3 @@
-use revolt_result::Error;
 use revolt_rocket_okapi::{
     gen::OpenApiGenerator,
     request::{OpenApiFromRequest, RequestHeaderInput},

@@ -171,7 +171,7 @@ pub async fn admin_set_access(
 
 /// # Search Users
 ///
-/// Search users by username. Requires HTTP Basic Auth.
+/// Search users by username or exact user ID.
 #[openapi(tag = "Admin")]
 #[get("/users/search?<q>")]
 pub async fn admin_search_users(
@@ -181,11 +181,16 @@ pub async fn admin_search_users(
 ) -> Result<Json<Vec<AdminUserInfo>>> {
     let users = match db.inner() {
         Database::MongoDb(mongo) => {
+            let filter = if q.len() == 26 {
+                doc! { "_id": &q }
+            } else {
+                doc! {
+                    "username": { "$regex": &q as &str, "$options": "i" }
+                }
+            };
             let mut cursor = mongo
                 .col::<bson::Document>("users")
-                .find(doc! {
-                    "username": { "$regex": &q as &str, "$options": "i" }
-                })
+                .find(filter)
                 .limit(20)
                 .await
                 .map_err(|_| revolt_result::create_error!(InternalError))?;

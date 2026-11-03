@@ -27,6 +27,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         servers::admin_delete_server,
         servers::admin_create_server_invite,
         users::admin_search_users,
+        users::admin_generate_password_reset,
         users::admin_set_badge,
         users::admin_set_access,
         users::admin_ban_user,

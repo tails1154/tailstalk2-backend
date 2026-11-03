@@ -19,7 +19,6 @@ mod send_friend_request;
 mod unblock_user;
 mod warnings;
 pub(crate) mod xp;
-mod profile_decorations;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
