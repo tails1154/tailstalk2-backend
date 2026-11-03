@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use iso8601_timestamp::Timestamp;
 use revolt_database::{
-    mongodb::bson::doc,
+    mongodb::bson::{doc, Document},
     util::{email::normalise_email, password::assert_safe},
     Database, Lockout, MFATicket,
 };
@@ -154,8 +154,19 @@ pub async fn login(
 
     // Prevent disabled accounts from logging in
     if account.disabled {
+        let reason = match db.inner() {
+            Database::MongoDb(mongo) => mongo
+                .col::<Document>("users")
+                .find_one(doc! { "_id": &account.id })
+                .await
+                .ok()
+                .flatten()
+                .and_then(|user| user.get_str("admin_ban_reason").ok().map(str::to_owned)),
+            _ => None,
+        };
         return Ok(Json(v0::ResponseLogin::Disabled {
             user_id: account.id,
+            reason,
         }));
     }
 

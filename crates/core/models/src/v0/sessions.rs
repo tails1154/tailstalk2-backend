@@ -82,6 +82,8 @@ auto_derived!(
         },
         Disabled {
             user_id: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            reason: Option<String>,
         },
     }
 
