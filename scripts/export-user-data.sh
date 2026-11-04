@@ -62,6 +62,36 @@ export_collection accounts \
 export_collection users \
   "{\"_id\":\"$user_id\"}" \
   "_id,username,discriminator,display_name,pronouns,avatar,status,profile_content,badges,flags"
+export_collection sessions \
+  "{\"user_id\":\"$user_id\"}" \
+  "_id,user_id,name,last_seen,origin"
+export_collection bots \
+  "{\"owner\":\"$user_id\"}" \
+  "_id,owner,public,analytics,discoverable,interactions_url,terms_of_service_url,privacy_policy_url,flags"
+export_collection servers \
+  "{\"owner\":\"$user_id\"}" \
+  "_id,owner,name,description,channels,categories,system_messages,roles,default_permissions,icon,banner,flags,nsfw,analytics,discoverable,admin_suspended"
+export_collection channels \
+  "{\"\$or\":[{\"user\":\"$user_id\"},{\"recipients\":\"$user_id\"},{\"owner\":\"$user_id\"}]}" \
+  "_id,channel_type,user,active,recipients,name,owner,description,icon,last_message_id,permissions,nsfw,server,role_permissions,default_permissions,voice,slowmode,forum"
+export_collection server_members \
+  "{\"_id.user\":\"$user_id\"}" \
+  "_id,joined_at,nickname,pronouns,avatar,roles,timeout,can_publish,can_receive"
+export_collection server_bans \
+  "{\"_id.user\":\"$user_id\"}" \
+  "_id,reason"
+export_collection account_invites \
+  "{\"claimed_by\":\"$user_id\"}" \
+  "_id,used,claimed_by"
+export_collection channel_invites \
+  "{\"creator\":\"$user_id\"}" \
+  "_id,type,server,channel,creator"
+export_collection channel_webhooks \
+  "{\"creator_id\":\"$user_id\"}" \
+  "_id,name,avatar,creator_id,channel_id,permissions"
+export_collection emojis \
+  "{\"creator_id\":\"$user_id\"}" \
+  "_id,parent,creator_id,name,animated,nsfw"
 export_collection messages \
   "{\"author\":\"$user_id\"}" \
   "_id,channel,author,content,system,attachments,edited,embeds,replies,reactions,interactions,poll,pinned"
@@ -80,9 +110,30 @@ export_collection channel_unreads \
 export_collection user_xp \
   "{\"_id\":\"$user_id\"}" \
   "_id,xp,level"
+export_collection user_tailslets \
+  "{\"author_id\":\"$user_id\"}" \
+  "_id,author_id,author_name,content,created_at"
+export_collection user_videos \
+  "{\"author_id\":\"$user_id\"}" \
+  "_id,author_id,author_name,attachment_id,caption,created_at"
+export_collection server_onboarding_completions \
+  "{\"_id.user\":\"$user_id\"}" \
+  "_id,answers,completed_at"
+export_collection server_boosts \
+  "{\"user_id\":\"$user_id\"}" \
+  "_id,server_id,user_id,source,created_at"
+export_collection premium_gifts \
+  "{\"redeemed_by\":\"$user_id\"}" \
+  "_id,duration_days,created_at,redeemed_by,redeemed_at,revoked"
 export_collection safety_reports \
   "{\"author_id\":\"$user_id\"}" \
   "_id,author_id,content,additional_context,status,notes"
+export_collection safety_snapshots \
+  "{\"\$or\":[{\"content.message.author\":\"$user_id\"},{\"content.user._id\":\"$user_id\"}]}" \
+  "_id,report_id,content"
+export_collection safety_strikes \
+  "{\"\$or\":[{\"user_id\":\"$user_id\"},{\"moderator_id\":\"$user_id\"}]}" \
+  "_id,user_id,moderator_id,reason,created_at,expires_at"
 
 tar -C "$staging" -czf "$archive" .
 chmod 0600 "$archive"
