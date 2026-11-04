@@ -78,9 +78,15 @@ required supervisory-authority or user notification.
 
 Before claiming production compliance, the operator must document the actual
 SMTP, storage, LiveKit, payment, CAPTCHA, and diagnostics providers, their
-locations, transfer safeguards, backup destination/rotation, and the legal
-controller address in the public policy. Also verify that production has no
-default service credentials, that TLS is enforced for public endpoints, and
-that secrets are rotated after any suspected exposure. The current production
-compose deployment still requires this credential-rotation step before it can
-be considered hardened.
+locations, and transfer safeguards as part of the operator's internal records.
+The public policy identifies Tails1154 and the privacy email address; no postal
+address is published. The operator should obtain jurisdiction-specific legal
+review of that contact arrangement rather than inventing an address.
+
+The production broker and object storage are not published as host ports, so
+their current credentials are internal-only defaults rather than internet
+credentials. Replacing them remains recommended defense in depth. Encrypted
+MongoDB/MinIO backups are configured under /mnt/backup/tailstalk2-gdpr,
+protected by a mode-0600 passphrase file, retained for 30 days, and included
+in the existing nightly backup runner. The readiness audit must pass before
+claiming that these operational controls are active.
