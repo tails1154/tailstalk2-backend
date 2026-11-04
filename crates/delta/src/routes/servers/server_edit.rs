@@ -39,6 +39,7 @@ pub async fn edit(
     // Check permissions
     if data.name.is_none()
         && data.description.is_none()
+        && data.announcement.is_none()
         && data.icon.is_none()
         && data.banner.is_none()
         && data.system_messages.is_none()
@@ -53,6 +54,7 @@ pub async fn edit(
         return Ok(Json(server.into()));
     } else if data.name.is_some()
         || data.description.is_some()
+        || data.announcement.is_some()
         || data.icon.is_some()
         || data.banner.is_some()
         || data.system_messages.is_some()
@@ -88,6 +90,7 @@ pub async fn edit(
     let v0::DataEditServer {
         name,
         description,
+        announcement,
         icon,
         banner,
         categories,
@@ -103,6 +106,7 @@ pub async fn edit(
     let mut partial = PartialServer {
         name,
         description,
+        announcement,
         categories: categories.map(|v| v.into_iter().map(Into::into).collect()),
         system_messages: system_messages.map(Into::into),
         flags,

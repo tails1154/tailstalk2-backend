@@ -15,6 +15,8 @@ pub struct ServerOnboarding {
     pub enabled: bool,
     #[serde(default)]
     pub completed: bool,
+    #[serde(default)]
+    pub rules_acknowledged: bool,
     pub title: String,
     pub message: String,
     pub rules: String,
@@ -42,6 +44,8 @@ pub struct OnboardingOption {
 pub struct CompleteOnboarding {
     #[serde(default)]
     pub answers: HashMap<String, Vec<String>>,
+    #[serde(default)]
+    pub rules_acknowledged: bool,
 }
 
 #[derive(Clone, Debug, Serialize, JsonSchema)]
@@ -141,15 +145,18 @@ pub async fn fetch(
     };
 
     if let Database::MongoDb(mongo) = &**db {
-        settings.completed = mongo
+        let completion = mongo
             .col::<Document>("server_onboarding_completions")
             .find_one(doc! {
                 "_id.server": &server.id,
                 "_id.user": &user.id,
             })
             .await
-            .map_err(|_| create_database_error!("find_one", "server_onboarding_completions"))?
-            .is_some();
+            .map_err(|_| create_database_error!("find_one", "server_onboarding_completions"))?;
+        settings.completed = completion.is_some();
+        settings.rules_acknowledged = completion
+            .and_then(|document| document.get_bool("rules_acknowledged").ok())
+            .unwrap_or(false);
     }
 
     Ok(Json(settings))
@@ -170,10 +177,20 @@ pub async fn update(
         .await
         .throw_if_lacking_channel_permission(ChannelPermission::ManageServer)?;
 
-    let settings = data.into_inner();
+    let mut settings = data.into_inner();
     validate_questions(&settings.questions, &server)?;
+    // A changed onboarding setup must be acknowledged again by each member.
+    settings.completed = false;
+    settings.rules_acknowledged = false;
     match &**db {
         Database::MongoDb(mongo) => {
+            mongo
+                .col::<Document>("server_onboarding_completions")
+                .delete_many(doc! { "_id.server": &server.id })
+                .await
+                .map_err(|_| {
+                    create_database_error!("delete_many", "server_onboarding_completions")
+                })?;
             let mut document = revolt_database::mongodb::bson::to_document(&settings)
                 .map_err(|_| create_database_error!("serialize", "server_onboarding"))?;
             document.insert("_id", &server.id);
@@ -213,7 +230,11 @@ pub async fn complete(
 
     validate_questions(&settings.questions, &server)?;
 
-    let selected_roles = selected_roles(&settings.questions, data.into_inner().answers)?;
+    let data = data.into_inner();
+    if !settings.rules.trim().is_empty() && !data.rules_acknowledged {
+        return Err(revolt_result::create_error!(InvalidProperty));
+    }
+    let selected_roles = selected_roles(&settings.questions, data.answers)?;
 
     let mut roles = member.roles.clone();
     roles.extend(selected_roles.iter().cloned());
@@ -238,13 +259,16 @@ pub async fn complete(
                     "_id.server": &server.id,
                     "_id.user": &user.id,
                 },
-                doc! { "$set": { "completed": true } },
+                doc! {
+                    "$set": {
+                        "completed": true,
+                        "rules_acknowledged": data.rules_acknowledged
+                    }
+                },
             )
             .upsert(true)
             .await
-            .map_err(|_| {
-                create_database_error!("update_one", "server_onboarding_completions")
-            })?;
+            .map_err(|_| create_database_error!("update_one", "server_onboarding_completions"))?;
     }
 
     Ok(Json(CompleteOnboardingResponse {

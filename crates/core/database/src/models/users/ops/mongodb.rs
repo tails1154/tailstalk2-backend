@@ -317,6 +317,8 @@ impl AbstractUsers for MongoDb {
             ("user_videos", doc! { "author_id": id }),
             ("profile_decoration_ownership", doc! { "user_id": id }),
             ("server_onboarding_completions", doc! { "_id.user": id }),
+            ("passkeys", doc! { "user_id": id }),
+            ("passkey_challenges", doc! { "user_id": id }),
             ("user_xp", doc! { "_id": id }),
             ("mfa_tickets", doc! { "account_id": id }),
             ("channel_invites", doc! { "creator": id }),

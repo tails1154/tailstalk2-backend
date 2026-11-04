@@ -764,6 +764,7 @@ impl From<crate::Server> for Server {
             owner: value.owner,
             name: value.name,
             description: value.description,
+            announcement: value.announcement,
             channels: value.channels,
             categories: value
                 .categories
@@ -792,6 +793,7 @@ impl From<Server> for crate::Server {
             owner: value.owner,
             name: value.name,
             description: value.description,
+            announcement: value.announcement,
             channels: value.channels,
             categories: value
                 .categories
@@ -821,6 +823,7 @@ impl From<crate::PartialServer> for PartialServer {
             owner: value.owner,
             name: value.name,
             description: value.description,
+            announcement: value.announcement,
             channels: value.channels,
             categories: value
                 .categories
@@ -847,6 +850,7 @@ impl From<PartialServer> for crate::PartialServer {
             owner: value.owner,
             name: value.name,
             description: value.description,
+            announcement: value.announcement,
             channels: value.channels,
             categories: value
                 .categories
@@ -873,6 +877,7 @@ impl From<crate::FieldsServer> for FieldsServer {
             crate::FieldsServer::Banner => FieldsServer::Banner,
             crate::FieldsServer::Categories => FieldsServer::Categories,
             crate::FieldsServer::Description => FieldsServer::Description,
+            crate::FieldsServer::Announcement => FieldsServer::Announcement,
             crate::FieldsServer::Icon => FieldsServer::Icon,
             crate::FieldsServer::SystemMessages => FieldsServer::SystemMessages,
         }
@@ -885,6 +890,7 @@ impl From<FieldsServer> for crate::FieldsServer {
             FieldsServer::Banner => crate::FieldsServer::Banner,
             FieldsServer::Categories => crate::FieldsServer::Categories,
             FieldsServer::Description => crate::FieldsServer::Description,
+            FieldsServer::Announcement => crate::FieldsServer::Announcement,
             FieldsServer::Icon => crate::FieldsServer::Icon,
             FieldsServer::SystemMessages => crate::FieldsServer::SystemMessages,
         }

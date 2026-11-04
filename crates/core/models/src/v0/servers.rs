@@ -23,6 +23,9 @@ auto_derived_partial!(
         /// Description for the server
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         pub description: Option<String>,
+        /// Optional announcement shown to members at the top of the server.
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        pub announcement: Option<String>,
 
         /// Channels within this server
         // TODO: investigate if this is redundant and can be removed
@@ -117,6 +120,7 @@ auto_derived!(
     /// Optional fields on server object
     pub enum FieldsServer {
         Description,
+        Announcement,
         Categories,
         SystemMessages,
         Icon,
@@ -168,6 +172,9 @@ auto_derived!(
         /// Server description
         #[cfg_attr(feature = "validator", validate(length(min = 0, max = 1024)))]
         pub description: Option<String>,
+        /// Announcement shown to members at the top of the server.
+        #[cfg_attr(feature = "validator", validate(length(min = 0, max = 1024)))]
+        pub announcement: Option<String>,
         /// Whether this server is age-restricted
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         pub nsfw: Option<bool>,

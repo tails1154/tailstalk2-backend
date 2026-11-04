@@ -21,6 +21,9 @@ auto_derived_partial!(
         /// Description for the server
         #[serde(skip_serializing_if = "Option::is_none")]
         pub description: Option<String>,
+        /// Optional announcement shown to members.
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        pub announcement: Option<String>,
 
         /// Channels within this server
         // TODO: investigate if this is redundant and can be removed
@@ -155,6 +158,7 @@ impl Server {
             owner: owner.id.to_string(),
             name: data.name,
             description: data.description,
+            announcement: None,
             channels: vec![],
             nsfw: data.nsfw.unwrap_or(false),
             default_permissions: *DEFAULT_PERMISSION_SERVER as i64,
@@ -234,6 +238,7 @@ impl Server {
     pub fn remove_field(&mut self, field: &FieldsServer) {
         match field {
             FieldsServer::Description => self.description = None,
+            FieldsServer::Announcement => self.announcement = None,
             FieldsServer::Categories => self.categories = None,
             FieldsServer::SystemMessages => self.system_messages = None,
             FieldsServer::Icon => self.icon = None,
@@ -251,6 +256,7 @@ impl Server {
                 owner,
                 name,
                 (FieldsServer::Description) description,
+                (FieldsServer::Announcement) announcement,
                 (FieldsServer::Categories) categories,
                 (FieldsServer::SystemMessages) system_messages,
                 roles,

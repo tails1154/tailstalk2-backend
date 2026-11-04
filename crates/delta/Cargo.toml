@@ -37,6 +37,7 @@ serde = { workspace = true }
 rust-argon2 = { workspace = true }
 base64 = { workspace = true }
 sha2 = { workspace = true }
+uuid = { workspace = true }
 hmac = { workspace = true }
 hex = { workspace = true }
 validator = { workspace = true, features = ["derive"] }
@@ -86,6 +87,7 @@ revolt-ratelimits = { workspace = true, features = ["rocket"] }
 # voice
 livekit-api = { workspace = true }
 livekit-protocol = { workspace = true }
+webauthn-rs = { version = "0.5.3", features = ["danger-allow-state-serialisation"] }
 
 [dev-dependencies]
 revolt-config = { workspace = true, features = ["test"] }
