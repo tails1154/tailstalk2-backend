@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
-use revolt_database::{Database, User, Session};
+use revolt_database::{Database, PartialUser, User, Session};
 use revolt_models::v0;
 use revolt_result::{create_error, Result};
 
@@ -14,12 +14,19 @@ use validator::Validate;
 /// Block lookalike characters
 pub static RE_USERNAME: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\p{L}|[\d_.-])+$").unwrap());
 
+/// Display names are stored separately from the unique username.
+pub static RE_DISPLAY_NAME: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[^\u{200B}\n\r]+$").unwrap());
+
 /// # New User Data
 #[derive(Validate, Serialize, Deserialize, JsonSchema)]
 pub struct DataOnboard {
     /// New username which will be used to identify the user on the platform
     #[validate(length(min = 2, max = 32), regex = "RE_USERNAME")]
     username: String,
+    /// Name shown to other users
+    #[validate(length(min = 2, max = 32), regex = "RE_DISPLAY_NAME")]
+    display_name: String,
 }
 
 /// # Complete Onboarding
@@ -51,7 +58,15 @@ pub async fn complete(
     }
 
     Ok(Json(
-        User::create(db, data.username, session.user_id, None)
+        User::create(
+            db,
+            data.username,
+            session.user_id,
+            Some(PartialUser {
+                display_name: Some(data.display_name),
+                ..Default::default()
+            }),
+        )
             .await?
             .into_self(false)
             .await,
