@@ -11,7 +11,6 @@ mod webhook_execute;
 mod webhook_execute_github;
 mod webhook_fetch;
 mod webhook_fetch_token;
-mod stripe;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
@@ -25,6 +24,5 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         webhook_execute::webhook_execute,
         webhook_fetch_token::webhook_fetch_token,
         webhook_fetch::webhook_fetch,
-        stripe::stripe_webhook,
     ]
 }

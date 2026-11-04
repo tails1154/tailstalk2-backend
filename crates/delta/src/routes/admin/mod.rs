@@ -5,8 +5,6 @@ pub(crate) mod auth;
 mod reports;
 mod servers;
 mod stats;
-mod gifts;
-mod subscriptions;
 mod profile_decorations;
 mod users;
 mod whatsnew;
@@ -14,9 +12,6 @@ mod whatsnew;
 pub fn routes() -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![
         stats::admin_stats,
-        gifts::admin_create_gift,
-        subscriptions::admin_subscriptions,
-        subscriptions::admin_update_subscription,
         profile_decorations::list,
         profile_decorations::create,
         reports::admin_reports,
@@ -30,7 +25,6 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         users::admin_generate_password_reset,
         users::admin_set_badge,
         users::admin_set_access,
-        users::admin_clear_legal_name,
         users::admin_ban_user,
         users::admin_unban_user,
         users::admin_suspend_user,

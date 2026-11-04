@@ -1,9 +1,10 @@
 use revolt_database::{
     mongodb::bson::{self, doc},
     util::email::email_templates,
-    Database, PasswordReset,
+    Database, PartialUser, PasswordReset,
 };
 use revolt_config::config;
+use revolt_models::v0::UserBadges;
 use revolt_result::Result;
 use rocket::serde::json::Json;
 use rocket::State;
@@ -17,7 +18,6 @@ pub struct AdminUserInfo {
     pub username: String,
     pub discriminator: String,
     pub display_name: Option<String>,
-    pub legal_name: Option<String>,
     pub flags: Option<i32>,
     pub suspended_until: Option<String>,
     pub privileged: bool,
@@ -74,7 +74,6 @@ impl AdminWarning {
 fn user_from_doc(doc: &bson::Document) -> Option<AdminUserInfo> {
     let suspended = doc.get_str("suspended_until").ok().map(|s| s.to_string());
     let display = doc.get_str("display_name").ok().map(|s| s.to_string());
-    let legal_name = doc.get_str("legal_name").ok().map(|s| s.to_string());
     let warnings = doc
         .get_array("admin_warnings")
         .map(AdminWarning::from_bson)
@@ -85,7 +84,6 @@ fn user_from_doc(doc: &bson::Document) -> Option<AdminUserInfo> {
         username: doc.get_str("username").ok()?.to_string(),
         discriminator: "0000".to_owned(),
         display_name: display,
-        legal_name,
         flags: doc.get_i32("flags").ok(),
         suspended_until: suspended,
         privileged: doc.get_bool("privileged").unwrap_or(false),
@@ -170,34 +168,6 @@ pub async fn admin_set_access(
     }
 
     Ok(Json(serde_json::json!({ "privileged": data.enabled })))
-}
-
-/// Clear a user's private legal name so the required-name prompt appears again.
-#[openapi(tag = "Admin")]
-#[post("/users/<id>/legal-name/clear")]
-pub async fn admin_clear_legal_name(
-    _admin: AdminUser,
-    db: &State<Database>,
-    id: String,
-) -> Result<Json<serde_json::Value>> {
-    match db.inner() {
-        Database::MongoDb(mongo) => {
-            let result = mongo
-                .col::<bson::Document>("users")
-                .update_one(
-                    doc! { "_id": &id },
-                    doc! { "$unset": { "legal_name": "" } },
-                )
-                .await
-                .map_err(|_| revolt_result::create_error!(InternalError))?;
-            if result.matched_count == 0 {
-                return Err(revolt_result::create_error!(NotFound));
-            }
-        }
-        _ => return Err(revolt_result::create_error!(InternalError)),
-    }
-
-    Ok(Json(serde_json::json!({ "set": false })))
 }
 
 /// # Search Users
@@ -290,6 +260,46 @@ pub async fn admin_ban_user(
     // invalidated immediately instead of remaining usable.
     let mut account = db.fetch_account(&id).await?;
     account.disable(db).await?;
+
+    if let Some(subscription) = account.subscription.as_ref() {
+        if subscription.provider == "stripe" {
+            if let Some(subscription_id) = subscription.provider_subscription_id.as_deref() {
+                let settings = config().await;
+                if settings.api.stripe.enabled && !settings.api.stripe.secret_key.is_empty() {
+                    let response = reqwest::Client::new()
+                        .delete(format!("https://api.stripe.com/v1/subscriptions/{subscription_id}"))
+                        .basic_auth(&settings.api.stripe.secret_key, None::<&str>)
+                        .send()
+                        .await;
+                    match response {
+                        Ok(response) if !response.status().is_success() => {
+                            log::error!("Stripe cancellation during ban failed with {}", response.status());
+                        }
+                        Err(error) => {
+                            log::error!("Stripe cancellation during ban failed: {error}");
+                        }
+                        Ok(_) => {}
+                    }
+                }
+            }
+        }
+
+        // Remove the local entitlement even if the provider request fails so a
+        // banned account cannot continue using subscription-only features.
+        account.subscription = None;
+        account.save(db).await?;
+        let mut user = db.fetch_user(&id).await?;
+        let badges = user.badges.unwrap_or_default() & !(UserBadges::TailsTalkSupporter as i32);
+        user.update(
+            db,
+            PartialUser {
+                badges: Some(badges),
+                ..Default::default()
+            },
+            vec![],
+        )
+        .await?;
+    }
 
     match db.inner() {
         Database::MongoDb(mongo) => {

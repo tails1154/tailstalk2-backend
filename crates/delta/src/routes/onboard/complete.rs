@@ -1,6 +1,6 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
-use revolt_database::{Database, PartialUser, User, Session};
+use revolt_database::{Database, Session, User};
 use revolt_models::v0;
 use revolt_result::{create_error, Result};
 
@@ -14,21 +14,12 @@ use validator::Validate;
 /// Block lookalike characters
 pub static RE_USERNAME: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\p{L}|[\d_.-])+$").unwrap());
 
-/// Legal names are stored privately and are never included in public user objects.
-pub static RE_LEGAL_NAME: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^[^\u{200B}\n\r]+$").unwrap());
-
 /// # New User Data
 #[derive(Validate, Serialize, Deserialize, JsonSchema)]
 pub struct DataOnboard {
     /// New username which will be used to identify the user on the platform
     #[validate(length(min = 2, max = 32), regex = "RE_USERNAME")]
     username: String,
-    /// Private legal name used only for safety and legal requests.
-    /// This is collected after signup by the required account modal.
-    #[serde(default)]
-    #[validate(length(min = 2, max = 100), regex = "RE_LEGAL_NAME")]
-    legal_name: Option<String>,
 }
 
 /// # Complete Onboarding
@@ -64,10 +55,7 @@ pub async fn complete(
             db,
             data.username,
             session.user_id,
-            Some(PartialUser {
-                legal_name: data.legal_name,
-                ..Default::default()
-            }),
+            None,
         )
             .await?
             .into_self(false)

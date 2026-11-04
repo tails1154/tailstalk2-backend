@@ -11,10 +11,6 @@ pub mod fetch_account;
 pub mod password_reset;
 pub mod resend_verification;
 pub mod send_password_reset;
-pub mod stripe_checkout;
-pub mod stripe_cancel;
-pub mod stripe_resume;
-pub mod cash_payment;
 pub mod verify_email;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
@@ -30,9 +26,5 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         verify_email::verify_email,
         password_reset::password_reset,
         send_password_reset::send_password_reset,
-        stripe_checkout::stripe_checkout,
-        stripe_cancel::stripe_cancel,
-        stripe_resume::stripe_resume,
-        cash_payment::cash_payment,
     ]
 }
