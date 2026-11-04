@@ -68,6 +68,9 @@ export_collection sessions \
 export_collection bots \
   "{\"owner\":\"$user_id\"}" \
   "_id,owner,public,analytics,discoverable,interactions_url,terms_of_service_url,privacy_policy_url,flags"
+export_collection oauth_applications \
+  "{\"owner_id\":\"$user_id\"}" \
+  "_id,name,owner_id,redirect_uris,allowed_scopes,public,revoked,created_at"
 export_collection servers \
   "{\"owner\":\"$user_id\"}" \
   "_id,owner,name,description,channels,categories,system_messages,roles,default_permissions,icon,banner,flags,nsfw,analytics,discoverable,admin_suspended"

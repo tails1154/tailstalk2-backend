@@ -31,10 +31,13 @@ accidental reuse of public defaults.
 - Account deletion is MFA/password protected, optionally email-confirmed, and
   scheduled with a seven-day grace period. The deletion worker then removes
   the account's messages, owned communities, sessions, settings, unread state,
-  XP, MFA tickets, bot/tailslet/video ownership, and other private records.
+  XP, MFA tickets, OAuth applications/grants/tokens, rate-limit records, boosts,
+  bot/tailslet/video ownership, and other private records.
 - Uploaded files are marked for deletion and removed by the file-deletion
   worker. Reported files and moderation records may be retained as safety or
   legal evidence; the deleted account's report author ID is anonymized.
+- Operational invite/gift redemption records are retained only as needed to
+  prevent reuse, with the deleted account reference removed or anonymized.
 - Backups may retain deleted data until their documented rotation period.
 
 ## Rights requests

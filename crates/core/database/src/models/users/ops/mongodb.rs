@@ -322,6 +322,15 @@ impl AbstractUsers for MongoDb {
             ("channel_invites", doc! { "creator": id }),
             ("channel_webhooks", doc! { "creator_id": id }),
             ("channels", doc! { "user": id }),
+            // Revoke external application access immediately when the account
+            // is deleted rather than waiting for token TTLs to expire.
+            ("oauth_access_tokens", doc! { "user_id": id }),
+            ("oauth_refresh_tokens", doc! { "user_id": id }),
+            ("oauth_authorization_codes", doc! { "user_id": id }),
+            ("oauth_consent_requests", doc! { "user_id": id }),
+            ("oauth_applications", doc! { "owner_id": id }),
+            ("ratelimit_events", doc! { "target_id": id }),
+            ("server_boosts", doc! { "user_id": id }),
         ];
 
         for (collection, filter) in owned_data {
@@ -385,6 +394,25 @@ impl AbstractUsers for MongoDb {
             )
             .await
             .map_err(|_| create_database_error!("update_many", "emojis"))?;
+
+        // Preserve the fact that an account invite or gift was consumed while
+        // removing the deleted account's identifier from that operational
+        // record. This is not moderation evidence and should not keep a
+        // deleted account reference indefinitely.
+        self.col::<Document>("account_invites")
+            .update_many(
+                doc! { "claimed_by": id },
+                doc! { "$unset": { "claimed_by": "" } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "account_invites"))?;
+        self.col::<Document>("premium_gifts")
+            .update_many(
+                doc! { "redeemed_by": id },
+                doc! { "$set": { "redeemed_by": "deleted" } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "premium_gifts"))?;
 
         Ok(())
     }
