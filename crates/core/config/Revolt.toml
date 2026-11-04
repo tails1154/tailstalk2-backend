@@ -139,8 +139,10 @@ ack_queue = "notifications.process.ack"                  # updates badges for ap
 
 [pushd.vapid]
 queue = "notifications.outbound.vapid"
-private_key = "LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0tCk1IY0NBUUVFSUJSUWpyTWxLRnBiVWhsUHpUbERvcEliYk1yeVNrNXpKYzVYVzIxSjJDS3hvQW9HQ0NxR1NNNDkKQXdFSG9VUURRZ0FFWnkrQkg2TGJQZ2hEa3pEempXOG0rUXVPM3pCajRXT1phdkR6ZU00c0pqbmFwd1psTFE0WAp1ZDh2TzVodU94QWhMQlU3WWRldVovWHlBdFpWZmNyQi9BPT0KLS0tLS1FTkQgRUMgUFJJVkFURSBLRVktLS0tLQo"
-public_key = "BGcvgR-i2z4IQ5Mw841vJvkLjt8wY-FjmWrw83jOLCY52qcGZS0OF7nfLzuYbjsQISwVO2HXrmf18gLWVX3Kwfw="
+# Generate and configure these in Revolt.overrides.toml or the deployment's
+# mounted Revolt.toml. Never commit private keys to the repository.
+private_key = ""
+public_key = ""
 
 [pushd.fcm]
 queue = "notifications.outbound.fcm"
@@ -167,8 +169,9 @@ blocked_domains = []
 
 [files]
 # Encryption key for stored files
-# Generate your own key using `openssl rand -base64 32`
-encryption_key = "qcuMA+ssxhMyKaNAKBGFfryfFtUH8NDlamQyDwGW6fU="
+# Generate and configure your own key using `openssl rand -base64 32` in a
+# deployment-only override. Never commit encryption keys to the repository.
+encryption_key = ""
 # Quality used for lossy WebP previews (set to 100 for lossless)
 webp_quality = 80.0
 # Mime types that cannot be uploaded or served
