@@ -39,6 +39,16 @@ account email or another proportionate method, record the request date and
 scope, search both database and object storage, and respond within one month
 unless a lawful extension is communicated. Use `/delete-account` for deletion.
 
+For a verified access request, an operator can create a redacted local export:
+
+```sh
+./scripts/export-user-data.sh USER_ID /secure/data-exports
+```
+
+The export excludes password hashes, MFA secrets, session/reset tokens, and
+webhook tokens. Uploaded binary content requires a separate identity-verified
+handoff; do not publish the export directory.
+
 ## Security and incident response
 
 Review admin access and secrets regularly. If a breach is suspected, preserve
