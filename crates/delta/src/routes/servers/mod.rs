@@ -30,7 +30,6 @@ mod server_delete;
 mod server_edit;
 mod server_fetch;
 mod vanity_create;
-mod theme;
 use crate::routes::users::xp;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
@@ -40,8 +39,6 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         server_fetch::fetch,
         server_edit::edit,
         vanity_create::create,
-        theme::fetch,
-        theme::update,
         server_ack::ack,
         channel_create::create_server_channel,
         member_fetch_all::fetch_all,
