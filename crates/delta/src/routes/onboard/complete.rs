@@ -24,9 +24,11 @@ pub struct DataOnboard {
     /// New username which will be used to identify the user on the platform
     #[validate(length(min = 2, max = 32), regex = "RE_USERNAME")]
     username: String,
-    /// Private legal name used only for safety and legal requests
+    /// Private legal name used only for safety and legal requests.
+    /// This is collected after signup by the required account modal.
+    #[serde(default)]
     #[validate(length(min = 2, max = 100), regex = "RE_LEGAL_NAME")]
-    legal_name: String,
+    legal_name: Option<String>,
 }
 
 /// # Complete Onboarding
@@ -63,7 +65,7 @@ pub async fn complete(
             data.username,
             session.user_id,
             Some(PartialUser {
-                legal_name: Some(data.legal_name),
+                legal_name: data.legal_name,
                 ..Default::default()
             }),
         )

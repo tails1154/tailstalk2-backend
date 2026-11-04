@@ -30,6 +30,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         users::admin_generate_password_reset,
         users::admin_set_badge,
         users::admin_set_access,
+        users::admin_clear_legal_name,
         users::admin_ban_user,
         users::admin_unban_user,
         users::admin_suspend_user,

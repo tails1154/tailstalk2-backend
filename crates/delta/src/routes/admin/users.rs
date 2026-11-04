@@ -172,6 +172,34 @@ pub async fn admin_set_access(
     Ok(Json(serde_json::json!({ "privileged": data.enabled })))
 }
 
+/// Clear a user's private legal name so the required-name prompt appears again.
+#[openapi(tag = "Admin")]
+#[post("/users/<id>/legal-name/clear")]
+pub async fn admin_clear_legal_name(
+    _admin: AdminUser,
+    db: &State<Database>,
+    id: String,
+) -> Result<Json<serde_json::Value>> {
+    match db.inner() {
+        Database::MongoDb(mongo) => {
+            let result = mongo
+                .col::<bson::Document>("users")
+                .update_one(
+                    doc! { "_id": &id },
+                    doc! { "$unset": { "legal_name": "" } },
+                )
+                .await
+                .map_err(|_| revolt_result::create_error!(InternalError))?;
+            if result.matched_count == 0 {
+                return Err(revolt_result::create_error!(NotFound));
+            }
+        }
+        _ => return Err(revolt_result::create_error!(InternalError)),
+    }
+
+    Ok(Json(serde_json::json!({ "set": false })))
+}
+
 /// # Search Users
 ///
 /// Search users by username or exact user ID.
