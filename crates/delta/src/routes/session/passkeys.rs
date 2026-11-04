@@ -194,9 +194,10 @@ pub async fn register_start(
         },
     )
     .await?;
-    Ok(Json(
-        json!({ "challenge_id": challenge_id, "publicKey": options }),
-    ))
+    Ok(Json(json!({
+        "challenge_id": challenge_id,
+        "publicKey": options.public_key,
+    })))
 }
 
 #[openapi(tag = "Session")]
@@ -338,9 +339,10 @@ pub async fn login_start(db: &State<Database>, data: Json<Value>) -> Result<Json
         },
     )
     .await?;
-    Ok(Json(
-        json!({ "challenge_id": challenge_id, "publicKey": options }),
-    ))
+    Ok(Json(json!({
+        "challenge_id": challenge_id,
+        "publicKey": options.public_key,
+    })))
 }
 
 #[openapi(tag = "Session")]
