@@ -173,6 +173,7 @@ impl IntoDocumentPath for FieldsServer {
             FieldsServer::Banner => "banner",
             FieldsServer::Categories => "categories",
             FieldsServer::Description => "description",
+            FieldsServer::Announcement => "announcement",
             FieldsServer::Icon => "icon",
             FieldsServer::SystemMessages => "system_messages",
         })
