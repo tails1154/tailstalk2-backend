@@ -1231,6 +1231,7 @@ impl From<User> for crate::User {
             username: value.username,
             discriminator: value.discriminator,
             display_name: value.display_name,
+            legal_name: None,
             pronouns: value.pronouns,
             avatar: value.avatar.map(Into::into),
             relations: None,

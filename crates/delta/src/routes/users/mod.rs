@@ -12,6 +12,7 @@ mod fetch_user;
 mod fetch_user_flags;
 mod find_mutual;
 mod get_default_avatar;
+mod legal_name;
 mod open_dm;
 mod profile_decorations;
 mod remove_friend;
@@ -29,6 +30,8 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         edit_user::edit,
         change_username::change_username,
         get_default_avatar::default_avatar,
+        legal_name::status,
+        legal_name::set,
         fetch_profile::profile,
         warnings::get_warnings,
         xp::fetch,

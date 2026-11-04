@@ -14,8 +14,8 @@ use validator::Validate;
 /// Block lookalike characters
 pub static RE_USERNAME: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\p{L}|[\d_.-])+$").unwrap());
 
-/// Display names are stored separately from the unique username.
-pub static RE_DISPLAY_NAME: Lazy<Regex> =
+/// Legal names are stored privately and are never included in public user objects.
+pub static RE_LEGAL_NAME: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[^\u{200B}\n\r]+$").unwrap());
 
 /// # New User Data
@@ -24,9 +24,9 @@ pub struct DataOnboard {
     /// New username which will be used to identify the user on the platform
     #[validate(length(min = 2, max = 32), regex = "RE_USERNAME")]
     username: String,
-    /// Name shown to other users
-    #[validate(length(min = 2, max = 32), regex = "RE_DISPLAY_NAME")]
-    display_name: String,
+    /// Private legal name used only for safety and legal requests
+    #[validate(length(min = 2, max = 100), regex = "RE_LEGAL_NAME")]
+    legal_name: String,
 }
 
 /// # Complete Onboarding
@@ -63,7 +63,7 @@ pub async fn complete(
             data.username,
             session.user_id,
             Some(PartialUser {
-                display_name: Some(data.display_name),
+                legal_name: Some(data.legal_name),
                 ..Default::default()
             }),
         )

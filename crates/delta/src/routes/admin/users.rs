@@ -17,6 +17,7 @@ pub struct AdminUserInfo {
     pub username: String,
     pub discriminator: String,
     pub display_name: Option<String>,
+    pub legal_name: Option<String>,
     pub flags: Option<i32>,
     pub suspended_until: Option<String>,
     pub privileged: bool,
@@ -73,6 +74,7 @@ impl AdminWarning {
 fn user_from_doc(doc: &bson::Document) -> Option<AdminUserInfo> {
     let suspended = doc.get_str("suspended_until").ok().map(|s| s.to_string());
     let display = doc.get_str("display_name").ok().map(|s| s.to_string());
+    let legal_name = doc.get_str("legal_name").ok().map(|s| s.to_string());
     let warnings = doc
         .get_array("admin_warnings")
         .map(AdminWarning::from_bson)
@@ -83,6 +85,7 @@ fn user_from_doc(doc: &bson::Document) -> Option<AdminUserInfo> {
         username: doc.get_str("username").ok()?.to_string(),
         discriminator: "0000".to_owned(),
         display_name: display,
+        legal_name,
         flags: doc.get_i32("flags").ok(),
         suspended_until: suspended,
         privileged: doc.get_bool("privileged").unwrap_or(false),

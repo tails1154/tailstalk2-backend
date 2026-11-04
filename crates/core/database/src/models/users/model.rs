@@ -30,6 +30,9 @@ auto_derived_partial!(
         /// Display name
         #[serde(skip_serializing_if = "Option::is_none")]
         pub display_name: Option<String>,
+        /// Private legal name supplied for safety and legal requests.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub legal_name: Option<String>,
         /// User's pronouns
         #[serde(skip_serializing_if = "Option::is_none", default)]
         pub pronouns: Option<String>,
@@ -188,6 +191,7 @@ impl Default for User {
             username: Default::default(),
             discriminator: "0000".to_owned(),
             display_name: Default::default(),
+            legal_name: Default::default(),
             pronouns: Default::default(),
             avatar: Default::default(),
             relations: Default::default(),
