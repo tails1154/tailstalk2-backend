@@ -131,6 +131,7 @@ auto_derived!(
     /// Optional fields on server object
     pub enum FieldsServer {
         Description,
+        Announcement,
         Categories,
         SystemMessages,
         Icon,
