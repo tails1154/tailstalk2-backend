@@ -20,6 +20,11 @@ pub struct DeleteAccountResponse {
 /// Stripe cancellation is best-effort: account deletion continues even when
 /// Stripe is unavailable, but the response tells the client to contact
 /// payments support so the subscription can be canceled manually.
+///
+/// This endpoint is already protected by an authenticated MFA ticket, so it
+/// schedules deletion directly. Requiring a second email confirmation here
+/// made the in-app and Google Play deletion flows appear successful while the
+/// account remained active when the email could not be delivered.
 #[openapi(tag = "Account")]
 #[post("/delete")]
 pub async fn delete_account(
@@ -80,7 +85,7 @@ pub async fn delete_account(
     }
 
     account
-        .start_account_deletion(db)
+        .schedule_deletion(db)
         .await
         .map(|_| Json(DeleteAccountResponse { stripe_cancellation_failed }))
 }
@@ -89,15 +94,12 @@ pub async fn delete_account(
 mod tests {
     use crate::{rocket, util::test::TestHarness};
     use revolt_database::MFATicket;
-    use rocket::http::{ContentType, Header, Status};
+    use rocket::http::{Header, Status};
 
     #[rocket::async_test]
     async fn success() {
         let harness = TestHarness::new().await;
         let (mut account, session, _) = harness.new_user().await;
-
-        account.email = "delete_account@smtp.test".to_string();
-        account.save(&harness.db).await.unwrap();
 
         let ticket = MFATicket::new(account.id.to_string(), true);
         ticket.save(&harness.db).await.unwrap();
@@ -109,21 +111,6 @@ mod tests {
             .dispatch()
             .await;
 
-        assert_eq!(res.status(), Status::NoContent);
-
-        let (_, code) = harness.assert_email("delete_account@smtp.test").await;
-        let res = harness.client
-            .put("/auth/account/delete")
-            .header(ContentType::JSON)
-            .body(
-                json!({
-                    "token": code
-                })
-                .to_string(),
-            )
-            .dispatch()
-            .await;
-
-        assert_eq!(res.status(), Status::NoContent);
+        assert_eq!(res.status(), Status::Ok);
     }
 }

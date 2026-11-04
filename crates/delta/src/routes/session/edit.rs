@@ -2,10 +2,9 @@
 //! PATCH /session/:id
 use revolt_database::{Database, Session};
 use revolt_models::v0;
-use revolt_result::{Result, create_error};
+use revolt_result::{create_error, Result};
 use rocket::serde::json::Json;
 use rocket::State;
-
 
 /// # Edit Session
 ///
@@ -37,8 +36,8 @@ pub async fn edit(
 #[cfg(test)]
 mod tests {
     use crate::{rocket, util::test::TestHarness};
-    use rocket::http::{ContentType, Status};
     use revolt_models::v0;
+    use rocket::http::{ContentType, Status};
 
     #[rocket::async_test]
     async fn success() {
@@ -47,7 +46,8 @@ mod tests {
         let harness = TestHarness::new().await;
         let (_, session, _) = harness.new_user().await;
 
-        let res = harness.client
+        let res = harness
+            .client
             .patch(format!("/auth/session/{}", session.id))
             .header(ContentType::JSON)
             .header(Header::new("X-Session-Token", session.token))
@@ -62,6 +62,9 @@ mod tests {
 
         assert_eq!(res.status(), Status::Ok);
 
-        assert_eq!(res.into_json::<v0::SessionInfo>().await.unwrap().name, "test name");
+        assert_eq!(
+            res.into_json::<v0::SessionInfo>().await.unwrap().name,
+            "test name"
+        );
     }
 }

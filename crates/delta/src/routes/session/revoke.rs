@@ -1,7 +1,7 @@
 //! Revoke an active session
 //! DELETE /session/:id
 use revolt_database::{Database, Session, ValidatedTicket};
-use revolt_result::{Result, create_error};
+use revolt_result::{create_error, Result};
 use rocket::State;
 use rocket_empty::EmptyResponse;
 
@@ -40,7 +40,8 @@ mod tests {
         let ticket = MFATicket::new(account.id.to_string(), true);
         ticket.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete(format!("/auth/session/{}", session.id))
             .header(Header::new("X-Session-Token", session.token))
             .header(Header::new("X-MFA-Ticket", ticket.token))
@@ -49,7 +50,8 @@ mod tests {
 
         assert_eq!(res.status(), Status::NoContent);
         assert!(matches!(
-            harness.db
+            harness
+                .db
                 .fetch_session(&session.id)
                 .await
                 .unwrap_err()
@@ -73,7 +75,8 @@ mod tests {
         let ticket = MFATicket::new(account.id.to_string(), true);
         ticket.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete(format!("/auth/session/{}", session.id))
             .header(Header::new("X-Session-Token", session.token))
             .header(Header::new("X-MFA-Ticket", ticket.token))
@@ -82,7 +85,8 @@ mod tests {
 
         assert_eq!(res.status(), Status::NoContent);
         assert!(matches!(
-            harness.db
+            harness
+                .db
                 .fetch_session(&session.id)
                 .await
                 .unwrap_err()
@@ -103,7 +107,8 @@ mod tests {
         account.mfa.totp_token = totp.clone();
         account.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete(format!("/auth/session/{}", session.id))
             .header(Header::new("X-Session-Token", session.token))
             .dispatch()

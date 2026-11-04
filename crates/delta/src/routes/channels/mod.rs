@@ -5,6 +5,7 @@ mod channel_ack;
 mod channel_delete;
 mod channel_edit;
 mod channel_fetch;
+mod forum;
 mod group_add_member;
 mod group_create;
 mod group_remove_member;
@@ -37,6 +38,8 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         members_fetch::fetch_members,
         channel_delete::delete,
         channel_edit::edit,
+        forum::fetch,
+        forum::update,
         invite_create::create_invite,
         message_send::message_send,
         message_query::query,

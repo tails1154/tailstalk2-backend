@@ -50,7 +50,8 @@ mod tests {
         let ticket = MFATicket::new(account.id.to_string(), true);
         ticket.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete("/auth/session/all?revoke_self=true")
             .header(Header::new("X-Session-Token", session.token))
             .header(Header::new("X-MFA-Ticket", ticket.token))
@@ -58,7 +59,8 @@ mod tests {
             .await;
 
         assert_eq!(res.status(), Status::NoContent);
-        assert!(harness.db
+        assert!(harness
+            .db
             .fetch_sessions(&session.user_id)
             .await
             .unwrap()
@@ -80,7 +82,8 @@ mod tests {
         let ticket = MFATicket::new(account.id.to_string(), true);
         ticket.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete("/auth/session/all?revoke_self=false")
             .header(Header::new("X-Session-Token", session.token))
             .header(Header::new("X-MFA-Ticket", ticket.token))
@@ -88,10 +91,7 @@ mod tests {
             .await;
 
         assert_eq!(res.status(), Status::NoContent);
-        let sessions = harness.db
-                .fetch_sessions(&session.user_id)
-                .await
-                .unwrap();
+        let sessions = harness.db.fetch_sessions(&session.user_id).await.unwrap();
 
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].id, session.id);
@@ -119,7 +119,8 @@ mod tests {
         let ticket = MFATicket::new(account.id.to_string(), true);
         ticket.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete("/auth/session/all?revoke_self=true")
             .header(Header::new("X-Session-Token", session.token))
             .header(Header::new("X-MFA-Ticket", ticket.token))
@@ -127,7 +128,8 @@ mod tests {
             .await;
 
         assert_eq!(res.status(), Status::NoContent);
-        assert!(harness.db
+        assert!(harness
+            .db
             .fetch_sessions(&session.user_id)
             .await
             .unwrap()
@@ -156,7 +158,8 @@ mod tests {
         let ticket = MFATicket::new(account.id.to_string(), true);
         ticket.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete("/auth/session/all?revoke_self=false")
             .header(Header::new("X-Session-Token", session.token))
             .header(Header::new("X-MFA-Ticket", ticket.token))
@@ -164,10 +167,7 @@ mod tests {
             .await;
 
         assert_eq!(res.status(), Status::NoContent);
-        let sessions = harness.db
-                .fetch_sessions(&session.user_id)
-                .await
-                .unwrap();
+        let sessions = harness.db.fetch_sessions(&session.user_id).await.unwrap();
 
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].id, session.id);
@@ -185,7 +185,8 @@ mod tests {
         account.mfa.totp_token = totp.clone();
         account.save(&harness.db).await.unwrap();
 
-        let res = harness.client
+        let res = harness
+            .client
             .delete("/auth/session/all")
             .header(Header::new("X-Session-Token", session.token))
             .dispatch()
