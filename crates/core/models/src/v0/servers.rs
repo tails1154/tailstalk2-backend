@@ -239,6 +239,10 @@ auto_derived!(
         #[cfg_attr(feature = "validator", validate(length(min = 0, max = 1024)))]
         pub description: Option<String>,
 
+        /// Optional announcement shown to server members
+        #[cfg_attr(feature = "validator", validate(length(min = 0, max = 1024)))]
+        pub announcement: Option<String>,
+
         /// Attachment Id for icon
         pub icon: Option<String>,
         /// Attachment Id for banner

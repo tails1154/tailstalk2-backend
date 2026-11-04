@@ -81,7 +81,7 @@ fn webauthn() -> Result<Webauthn> {
         .unwrap_or_else(|_| "https://tailstalk2.com".to_owned());
     let origin = Url::parse(&origin).map_err(|_| create_error!(InternalError))?;
     WebauthnBuilder::new(&rp_id, &origin)
-        .map(|builder| builder.rp_name("TailsTalk 2").build())
+        .and_then(|builder| builder.rp_name("TailsTalk 2").build())
         .map_err(|_| create_error!(InternalError))
 }
 
@@ -229,7 +229,7 @@ pub async fn register_finish(
             .collect(),
         credential: serde_json::to_string(&passkey).map_err(|_| create_error!(InternalError))?,
     };
-    match db {
+    match &**db {
         Database::MongoDb(mongo) => {
             if mongo
                 .col::<Document>(PASSKEYS)
@@ -276,7 +276,7 @@ pub async fn delete(
         serde_json::from_value(data.into_inner()).map_err(|_| create_error!(InvalidToken))?;
     let account = db.fetch_account(&session.user_id).await?;
     account.verify_password(&data.password)?;
-    match db {
+    match &**db {
         Database::MongoDb(mongo) => {
             let result = mongo
                 .col::<Document>(PASSKEYS)
