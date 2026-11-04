@@ -58,6 +58,17 @@ The export excludes password hashes, MFA secrets, session/reset tokens, and
 webhook tokens. Uploaded binary content requires a separate identity-verified
 handoff; do not publish the export directory.
 
+Run the read-only deployment gate before describing the installation as
+hardened:
+
+    ./scripts/audit-privacy-deployment.sh
+
+It checks the public privacy and deletion pages, API availability, running
+services, replacement of default broker/object-storage credentials, and
+encrypted-backup configuration. A failing credential or backup check is
+intentional and requires operator action; the script never changes data or
+service state.
+
 ## Security and incident response
 
 Review admin access and secrets regularly. If a breach is suspected, preserve
