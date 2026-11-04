@@ -91,6 +91,14 @@ if [[ -n "$local_result" ]]; then
     failed=1
   fi
 
+  plaintext_archives="$(find /mnt/backup/tailstalk -maxdepth 1 -type f -name '*.tar.gz' 2>/dev/null | wc -l)"
+  if [[ "$plaintext_archives" == "0" ]]; then
+    printf 'PASS %-24s no plaintext archives\n' "backup privacy"
+  else
+    printf 'FAIL %-24s %s plaintext archives found\n' "backup privacy" "$plaintext_archives"
+    failed=1
+  fi
+
   if [[ "$running_count" =~ ^[0-9]+$ ]] && (( running_count > 0 )); then
     printf 'PASS %-24s %s containers running\n' "compose services" "$running_count"
   else
