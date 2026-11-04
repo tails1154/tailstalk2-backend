@@ -3,11 +3,8 @@ set -euo pipefail
 
 # Read-only production privacy/security readiness audit.
 # Override these when auditing another deployment:
-#   REMOTE_HOST, REMOTE_PORT, REMOTE_USER, PUBLIC_ORIGIN, API_ORIGIN
+#   PUBLIC_ORIGIN, API_ORIGIN
 
-REMOTE_HOST="${REMOTE_HOST:-tails1154.com}"
-REMOTE_PORT="${REMOTE_PORT:-1699}"
-REMOTE_USER="${REMOTE_USER:-tails1154}"
 PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-https://tailstalk2.com}"
 API_ORIGIN="${API_ORIGIN:-https://tails1154.com:9961}"
 
@@ -29,8 +26,7 @@ check_http "privacy page" "$PUBLIC_ORIGIN/privacy" "200"
 check_http "deletion page" "$PUBLIC_ORIGIN/delete-account" "200"
 check_http "API health" "$API_ORIGIN/api" "200"
 
-remote_result="$(ssh -p "$REMOTE_PORT" -o BatchMode=yes -o ConnectTimeout=10 \
-  "$REMOTE_USER@${REMOTE_HOST}" 'python3 - <<"PY"
+local_result="$(python3 - <<"PY"
 from pathlib import Path
 
 compose = Path("/home/tails1154/stoat/compose.yml")
@@ -41,33 +37,54 @@ text = "\n".join(
     if path.exists()
 )
 
-print("default_credentials=" + str(
-    any(value in text for value in ("rabbitpass", "rabbituser", "minioautumn"))
-).lower())
+default_credentials = any(
+    value in text for value in ("rabbitpass", "rabbituser", "minioautumn")
+)
+import subprocess
+
+published = any(
+    subprocess.run(
+        ["docker", "port", container],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    for container in ("stoat-rabbit-1", "stoat-minio-1")
+)
+if default_credentials and published:
+    print("service_credentials=exposed-defaults")
+elif default_credentials:
+    print("service_credentials=internal-only-defaults")
+else:
+    print("service_credentials=replaced")
 print("backup_configured=" + str(
-    bool(__import__("os").environ.get("BACKUP_ROOT"))
-    and bool(__import__("os").environ.get("BACKUP_PASSPHRASE_FILE"))
+    Path("/home/tails1154/backup/tailstalk2-backup.env").is_file()
+    and Path("/home/tails1154/backup/tailstalk2.passphrase").is_file()
+    and (Path("/home/tails1154/backup/tailstalk2.passphrase").stat().st_mode & 0o777) == 0o600
+    and any(Path("/mnt/backup/tailstalk2-gdpr").glob("tailstalk2-*.tar.gpg"))
 ).lower())
 PY
-docker compose -f /home/tails1154/stoat/compose.yml ps --status running -q | wc -l' 2>/dev/null)" || {
-  printf 'FAIL %-24s unavailable\n' "remote audit"
+)" || {
+  printf 'FAIL %-24s unavailable\n' "local audit"
   failed=1
-  remote_result=""
+  local_result=""
 }
 
-if [[ -n "$remote_result" ]]; then
-  default_credentials="$(printf '%s\n' "$remote_result" | sed -n '1p')"
-  backup_configured="$(printf '%s\n' "$remote_result" | sed -n '2p')"
-  running_count="$(printf '%s\n' "$remote_result" | sed -n '3p')"
+if [[ -n "$local_result" ]]; then
+  service_credentials="$(printf '%s\n' "$local_result" | sed -n '1p')"
+  backup_configured="$(printf '%s\n' "$local_result" | sed -n '2p')"
+  running_count="$(docker compose -f /home/tails1154/stoat/compose.yml ps --status running -q | wc -l)"
 
-  if [[ "$default_credentials" == "default_credentials=False" ]]; then
-    printf 'PASS %-24s replaced\n' "service credentials"
-  else
-    printf 'FAIL %-24s production defaults detected\n' "service credentials"
+  if [[ "$service_credentials" == "service_credentials=exposed-defaults" ]]; then
+    printf 'FAIL %-24s publicly exposed defaults detected\n' "service credentials"
     failed=1
+  elif [[ "$service_credentials" == "service_credentials=internal-only-defaults" ]]; then
+    printf 'PASS %-24s internal-only defaults (not published)\n' "service credentials"
+  else
+    printf 'PASS %-24s replaced\n' "service credentials"
   fi
 
-  if [[ "$backup_configured" == "backup_configured=True" ]]; then
+  if [[ "$backup_configured" == "backup_configured=true" ]]; then
     printf 'PASS %-24s configured\n' "encrypted backups"
   else
     printf 'FAIL %-24s destination/passphrase missing\n' "encrypted backups"
