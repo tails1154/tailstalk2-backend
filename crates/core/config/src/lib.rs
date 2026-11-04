@@ -267,6 +267,25 @@ pub struct ApiAuditLogs {
     pub expires_after: u64,
 }
 
+fn default_registration_ip_retention_seconds() -> u64 {
+    2592000
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct ApiPrivacy {
+    /// How long registration IP data is retained, in seconds.
+    #[serde(default = "default_registration_ip_retention_seconds")]
+    pub registration_ip_retention_seconds: u64,
+}
+
+impl Default for ApiPrivacy {
+    fn default() -> Self {
+        Self {
+            registration_ip_retention_seconds: default_registration_ip_retention_seconds(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct ApiStripe {
     pub enabled: bool,
@@ -289,6 +308,8 @@ pub struct Api {
     pub livekit: ApiLiveKit,
     pub users: ApiUsers,
     pub audit_logs: ApiAuditLogs,
+    #[serde(default)]
+    pub privacy: ApiPrivacy,
     pub stripe: ApiStripe,
 }
 

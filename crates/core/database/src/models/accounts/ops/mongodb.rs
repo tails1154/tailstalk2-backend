@@ -99,6 +99,31 @@ impl AbstractAccounts for MongoDb {
         )
     }
 
+    async fn clear_expired_registration_ips(&self, before: Timestamp) -> Result<()> {
+        self.col::<Account>(COL)
+            .update_many(
+                doc! {
+                    "$or": [
+                        {
+                            "registration_ip_at": {
+                                "$lte": to_bson(&before).map_err(|_| create_database_error!("to_bson", COL))?
+                            }
+                        },
+                        { "registration_ip_at": { "$exists": false } }
+                    ]
+                },
+                doc! {
+                    "$unset": {
+                        "registration_ip": 1_i32,
+                        "registration_ip_at": 1_i32
+                    }
+                },
+            )
+            .await
+            .map(|_| ())
+            .map_err(|_| create_database_error!("update_many", COL))
+    }
+
     // Save account
     async fn save_account(&self, account: &Account) -> Result<()> {
         self.col::<Account>(COL)

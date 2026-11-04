@@ -1,6 +1,7 @@
 use revolt_result::Result;
 
 use crate::Account;
+use iso8601_timestamp::Timestamp;
 
 #[cfg(feature = "mongodb")]
 mod mongodb;
@@ -28,6 +29,9 @@ pub trait AbstractAccounts: Sync + Send {
 
     /// Find accounts which are due to be deleted
     async fn fetch_accounts_due_for_deletion(&self) -> Result<Vec<Account>>;
+
+    /// Remove registration IP data older than the configured retention period.
+    async fn clear_expired_registration_ips(&self, before: Timestamp) -> Result<()>;
 
     // Save account
     async fn save_account(&self, account: &Account) -> Result<()>;

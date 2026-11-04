@@ -90,6 +90,20 @@ impl AbstractAccounts for ReferenceDb {
             .collect())
     }
 
+    async fn clear_expired_registration_ips(&self, before: Timestamp) -> Result<()> {
+        let mut accounts = self.accounts.lock().await;
+        for account in accounts.values_mut() {
+            if account
+                .registration_ip_at
+                .is_some_and(|recorded_at| recorded_at <= before)
+            {
+                account.registration_ip = None;
+                account.registration_ip_at = None;
+            }
+        }
+        Ok(())
+    }
+
     // Save account
     async fn save_account(&self, account: &Account) -> Result<()> {
         let mut accounts = self.accounts.lock().await;

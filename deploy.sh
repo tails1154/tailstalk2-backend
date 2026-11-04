@@ -6,6 +6,9 @@ cd "$(dirname "$0")"
 echo "=== Building revolt-delta ==="
 cargo build --release -p revolt-delta -vv 2>&1
 
+echo "=== Building revolt-crond ==="
+cargo build --release -p revolt-crond -vv 2>&1
+
 BONFIRE_CHANGED=0
 if [[ ! -x target/release/revolt-bonfire ]] \
     || ! git diff --quiet HEAD -- crates/bonfire Cargo.toml Cargo.lock \
@@ -20,8 +23,11 @@ fi
 echo "=== Copying binary ==="
 mkdir -p deploy
 cp target/release/revolt-delta deploy/revolt-delta
+cp target/release/revolt-crond deploy/revolt-crond
 scp -P 1699 deploy/revolt-delta tails1154.com:/home/tails1154/stoat/backend/deploy/revolt-delta
+scp -P 1699 deploy/revolt-crond tails1154.com:/home/tails1154/stoat/backend/deploy/revolt-crond
 scp -P 1699 deploy/Dockerfile tails1154.com:/home/tails1154/stoat/backend/deploy/Dockerfile
+scp -P 1699 deploy/crond.Dockerfile tails1154.com:/home/tails1154/stoat/backend/deploy/crond.Dockerfile
 if [[ "$BONFIRE_CHANGED" -eq 1 ]]; then
     cp target/release/revolt-bonfire deploy/revolt-bonfire
     scp -P 1699 deploy/revolt-bonfire tails1154.com:/home/tails1154/stoat/backend/deploy/revolt-bonfire
@@ -33,6 +39,7 @@ ssh -p 1699 tails1154.com <<EOF
 cd /home/tails1154/stoat/backend/
 echo "======"
 docker build --no-cache -t revolt-delta:local -f deploy/Dockerfile deploy/
+docker build --no-cache -t revolt-crond:local -f deploy/crond.Dockerfile deploy/
 if [[ "$BONFIRE_CHANGED" -eq 1 ]]; then
     docker build --no-cache -t revolt-bonfire:local -f deploy/bonfire.Dockerfile deploy/
 fi
@@ -56,6 +63,15 @@ else:
     print('No api service found')
     sys.exit(1)
 
+if 'crond' in data.get('services', {}):
+    crond = data['services']['crond']
+    crond.pop('build', None)
+    crond['image'] = 'revolt-crond:local'
+    print('Updated crond service')
+else:
+    print('No crond service found')
+    sys.exit(1)
+
 if "${BONFIRE_CHANGED}" == "1":
     if 'events' in data.get('services', {}):
         events = data['services']['events']
@@ -75,6 +91,9 @@ echo "=== Restarting API service ==="
 cd /home/tails1154/stoat
 docker compose down api
 docker compose up -d api
+echo "=== Restarting crond service ==="
+docker compose down crond
+docker compose up -d crond
 if [[ "$BONFIRE_CHANGED" -eq 1 ]]; then
     echo "=== Restarting events service ==="
     docker compose down events

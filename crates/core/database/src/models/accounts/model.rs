@@ -42,6 +42,10 @@ auto_derived_partial!(
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub registration_ip: Option<String>,
 
+        /// Time at which the registration IP was recorded.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pub registration_ip_at: Option<Timestamp>,
+
         /// Email verification status
         pub verification: EmailVerification,
 
@@ -350,6 +354,7 @@ impl Account {
 
                 disabled: false,
                 registration_ip: None,
+                registration_ip_at: None,
                 verification: EmailVerification::Verified,
                 password_reset: None,
                 deletion: None,
