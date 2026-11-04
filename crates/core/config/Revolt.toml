@@ -30,7 +30,8 @@ voso_legacy_ws = ""
 host = "rabbit"
 port = 5672
 username = "rabbituser"
-password = "rabbitpass"
+# Set this in the private deployment override. Do not use a public default.
+password = "CHANGE_ME"
 default_exchange = "revolt.default"
 
 [rabbit.queues]
@@ -230,9 +231,9 @@ path_style_buckets = false
 # S3 region name
 region = "minio"
 # S3 protocol key ID
-access_key_id = "minioautumn"
+access_key_id = "CHANGE_ME"
 # S3 protocol access key
-secret_access_key = "minioautumn"
+secret_access_key = "CHANGE_ME"
 default_bucket = "revolt-uploads"
 
 

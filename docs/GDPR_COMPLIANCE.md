@@ -14,6 +14,12 @@ the public policy at `https://tailstalk2.com/privacy`.
 
 Do not put plaintext passwords, payment-card numbers, or service credentials in
 the repository. Keep deployment secrets in the private override configuration.
+The production compose stack must also replace the default RabbitMQ and MinIO
+credentials in its private `Revolt.toml`, `compose.yml`, and initialization
+environment before exposure to the internet. Rotate those credentials together
+and restart/validate every dependent service; changing only one side can cause
+an outage. The checked-in template uses `CHANGE_ME` placeholders to prevent
+accidental reuse of public defaults.
 
 ## Retention and deletion
 
@@ -59,4 +65,8 @@ required supervisory-authority or user notification.
 Before claiming production compliance, the operator must document the actual
 SMTP, storage, LiveKit, payment, CAPTCHA, and diagnostics providers, their
 locations, transfer safeguards, backup destination/rotation, and the legal
-controller address in the public policy.
+controller address in the public policy. Also verify that production has no
+default service credentials, that TLS is enforced for public endpoints, and
+that secrets are rotated after any suspected exposure. The current production
+compose deployment still requires this credential-rotation step before it can
+be considered hardened.
