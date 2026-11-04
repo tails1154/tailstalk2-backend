@@ -692,6 +692,15 @@ impl Account {
     pub async fn mark_deleted(&mut self, db: &Database) -> Result<()> {
         self.email = format!("Deleted User {}", &self.id);
         self.email_normalised = format!("Deleted User {}", &self.id);
+        self.password.clear();
+        self.registration_ip = None;
+        self.registration_ip_at = None;
+        self.verification = EmailVerification::Verified;
+        self.password_reset = None;
+        self.lockout = None;
+        self.mfa = MultiFactorAuthentication::default();
+        self.subscription = None;
+        self.cash_payment_request = None;
         self.deletion = Some(DeletionInfo::Deleted);
 
         self.save(db).await?;

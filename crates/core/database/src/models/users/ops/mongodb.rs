@@ -319,6 +319,9 @@ impl AbstractUsers for MongoDb {
             ("server_onboarding_completions", doc! { "_id.user": id }),
             ("user_xp", doc! { "_id": id }),
             ("mfa_tickets", doc! { "account_id": id }),
+            ("channel_invites", doc! { "creator": id }),
+            ("channel_webhooks", doc! { "creator_id": id }),
+            ("channels", doc! { "user": id }),
         ];
 
         for (collection, filter) in owned_data {
@@ -327,6 +330,31 @@ impl AbstractUsers for MongoDb {
                 .await
                 .map_err(|_| create_database_error!("delete_many", collection))?;
         }
+
+        // Remove the deleted account from remaining group/DM recipient lists.
+        // Group ownership is anonymised so the group can remain available to
+        // its other members without retaining the deleted account ID.
+        self.col::<Document>("channels")
+            .update_many(
+                doc! { "channel_type": "DirectMessage", "recipients": id },
+                doc! { "$pull": { "recipients": id }, "$set": { "active": false } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "channels"))?;
+        self.col::<Document>("channels")
+            .update_many(
+                doc! { "channel_type": "Group", "recipients": id },
+                doc! { "$pull": { "recipients": id } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "channels"))?;
+        self.col::<Document>("channels")
+            .update_many(
+                doc! { "channel_type": "Group", "owner": id },
+                doc! { "$set": { "owner": "deleted" }, "$pull": { "recipients": id } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "channels"))?;
 
         // Files uploaded by the user are removed by the existing file
         // deletion daemon after this flag is set. Reported files are retained
@@ -348,6 +376,15 @@ impl AbstractUsers for MongoDb {
             )
             .await
             .map_err(|_| create_database_error!("update_many", "safety_reports"))?;
+
+        // Keep community emoji assets working, but remove their creator ID.
+        self.col::<Document>("emojis")
+            .update_many(
+                doc! { "creator_id": id },
+                doc! { "$set": { "creator_id": "deleted" } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "emojis"))?;
 
         Ok(())
     }
