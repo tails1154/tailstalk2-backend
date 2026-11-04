@@ -158,6 +158,10 @@ impl AbstractUsers for ReferenceDb {
         }
     }
 
+    async fn delete_user_private_data(&self, _id: &str) -> Result<()> {
+        Ok(())
+    }
+
     /// Removes all relationships with the user from the list of users
     async fn clear_user_relationships(
         &self,

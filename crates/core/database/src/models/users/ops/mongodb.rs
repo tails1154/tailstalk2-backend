@@ -1,4 +1,5 @@
 use ::mongodb::options::{Collation, CollationStrength, FindOneOptions, FindOptions};
+use bson::Document;
 use futures::StreamExt;
 use revolt_result::Result;
 
@@ -306,6 +307,49 @@ impl AbstractUsers for MongoDb {
     /// Delete a user by their id
     async fn delete_user(&self, id: &str) -> Result<()> {
         query!(self, delete_one_by_id, COL, id).map(|_| ())
+    }
+
+    async fn delete_user_private_data(&self, id: &str) -> Result<()> {
+        let owned_data = [
+            ("user_settings", doc! { "_id": id }),
+            ("channel_unreads", doc! { "_id.user": id }),
+            ("user_tailslets", doc! { "author_id": id }),
+            ("user_videos", doc! { "author_id": id }),
+            ("profile_decoration_ownership", doc! { "user_id": id }),
+            ("server_onboarding_completions", doc! { "_id.user": id }),
+            ("user_xp", doc! { "_id": id }),
+            ("mfa_tickets", doc! { "account_id": id }),
+        ];
+
+        for (collection, filter) in owned_data {
+            self.col::<Document>(collection)
+                .delete_many(filter)
+                .await
+                .map_err(|_| create_database_error!("delete_many", collection))?;
+        }
+
+        // Files uploaded by the user are removed by the existing file
+        // deletion daemon after this flag is set. Reported files are retained
+        // by that daemon as moderation evidence.
+        self.col::<Document>("attachments")
+            .update_many(
+                doc! { "uploader_id": id },
+                doc! { "$set": { "deleted": true } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "attachments"))?;
+
+        // Keep the moderation report itself, but remove the deleted user's
+        // account identifier from the retained record.
+        self.col::<Document>("safety_reports")
+            .update_many(
+                doc! { "author_id": id },
+                doc! { "$set": { "author_id": "deleted" } },
+            )
+            .await
+            .map_err(|_| create_database_error!("update_many", "safety_reports"))?;
+
+        Ok(())
     }
 
     /// Removes all relationships with the user from the list of users
