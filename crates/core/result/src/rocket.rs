@@ -36,6 +36,7 @@ impl<'r> Responder<'r, 'static> for Error {
             ErrorType::TooManyAttachments { .. } => Status::BadRequest,
             ErrorType::TooManyReplies { .. } => Status::BadRequest,
             ErrorType::EmptyMessage => Status::UnprocessableEntity,
+            ErrorType::AutoModBlocked => Status::Forbidden,
             ErrorType::PayloadTooLarge => Status::UnprocessableEntity,
             ErrorType::CannotRemoveYourself => Status::BadRequest,
             ErrorType::GroupTooLarge { .. } => Status::Forbidden,

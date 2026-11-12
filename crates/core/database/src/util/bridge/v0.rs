@@ -765,6 +765,7 @@ impl From<crate::Server> for Server {
             name: value.name,
             description: value.description,
             announcement: value.announcement,
+            automod: value.automod,
             channels: value.channels,
             categories: value
                 .categories
@@ -794,6 +795,7 @@ impl From<Server> for crate::Server {
             name: value.name,
             description: value.description,
             announcement: value.announcement,
+            automod: value.automod,
             channels: value.channels,
             categories: value
                 .categories
@@ -824,6 +826,7 @@ impl From<crate::PartialServer> for PartialServer {
             name: value.name,
             description: value.description,
             announcement: value.announcement,
+            automod: value.automod,
             channels: value.channels,
             categories: value
                 .categories
@@ -851,6 +854,7 @@ impl From<PartialServer> for crate::PartialServer {
             name: value.name,
             description: value.description,
             announcement: value.announcement,
+            automod: value.automod,
             channels: value.channels,
             categories: value
                 .categories
@@ -880,6 +884,7 @@ impl From<crate::FieldsServer> for FieldsServer {
             crate::FieldsServer::Announcement => FieldsServer::Announcement,
             crate::FieldsServer::Icon => FieldsServer::Icon,
             crate::FieldsServer::SystemMessages => FieldsServer::SystemMessages,
+            crate::FieldsServer::AutoMod => FieldsServer::AutoMod,
         }
     }
 }
@@ -893,6 +898,7 @@ impl From<FieldsServer> for crate::FieldsServer {
             FieldsServer::Announcement => crate::FieldsServer::Announcement,
             FieldsServer::Icon => crate::FieldsServer::Icon,
             FieldsServer::SystemMessages => crate::FieldsServer::SystemMessages,
+            FieldsServer::AutoMod => crate::FieldsServer::AutoMod,
         }
     }
 }

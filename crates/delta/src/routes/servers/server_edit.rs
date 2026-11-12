@@ -32,6 +32,17 @@ pub async fn edit(
         })
     })?;
 
+    if let Some(automod) = &data.automod {
+        if automod.blocked_words.len() > 100
+            || automod.blocked_words.iter().any(|word| word.len() > 128)
+            || automod.mention_limit.is_some_and(|limit| limit > 100)
+        {
+            return Err(create_error!(FailedValidation {
+                error: "AutoMod settings are too large".to_owned()
+            }));
+        }
+    }
+
     let mut server = target.as_server(db).await?;
     let mut query = DatabasePermissionQuery::new(db, &user).server(&server);
     let permissions = calculate_server_permissions(&mut query).await;
@@ -40,6 +51,7 @@ pub async fn edit(
     if data.name.is_none()
         && data.description.is_none()
         && data.announcement.is_none()
+        && data.automod.is_none()
         && data.icon.is_none()
         && data.banner.is_none()
         && data.system_messages.is_none()
@@ -55,6 +67,7 @@ pub async fn edit(
     } else if data.name.is_some()
         || data.description.is_some()
         || data.announcement.is_some()
+        || data.automod.is_some()
         || data.icon.is_some()
         || data.banner.is_some()
         || data.system_messages.is_some()
@@ -91,6 +104,7 @@ pub async fn edit(
         name,
         description,
         announcement,
+        automod,
         icon,
         banner,
         categories,
@@ -107,6 +121,7 @@ pub async fn edit(
         name,
         description,
         announcement,
+        automod,
         categories: categories.map(|v| v.into_iter().map(Into::into).collect()),
         system_messages: system_messages.map(Into::into),
         flags,

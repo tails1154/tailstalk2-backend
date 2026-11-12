@@ -34,6 +34,7 @@ impl IntoResponse for Error {
             ErrorType::TooManyAttachments { .. } => StatusCode::BAD_REQUEST,
             ErrorType::TooManyReplies { .. } => StatusCode::BAD_REQUEST,
             ErrorType::EmptyMessage => StatusCode::UNPROCESSABLE_ENTITY,
+            ErrorType::AutoModBlocked => StatusCode::FORBIDDEN,
             ErrorType::PayloadTooLarge => StatusCode::UNPROCESSABLE_ENTITY,
             ErrorType::CannotRemoveYourself => StatusCode::BAD_REQUEST,
             ErrorType::GroupTooLarge { .. } => StatusCode::FORBIDDEN,

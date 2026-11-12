@@ -42,6 +42,16 @@ pub async fn edit(
 
     permissions.throw_if_lacking_channel_permission(ChannelPermission::SendMessage)?;
 
+    // Edited content must pass the same AutoMod rules as new messages.
+    if let Some(content) = &edit.content {
+        if let Some(server_id) = channel.server() {
+            let server = db.fetch_server(server_id).await?;
+            if server.automod_blocks(content) {
+                return Err(create_error!(AutoModBlocked));
+            }
+        }
+    }
+
     let mut message = msg.as_message_in_channel(db, channel.id()).await?;
     if message.author != user.id {
         return Err(create_error!(CannotEditMessage));

@@ -83,12 +83,30 @@ pub async fn edit_role_ranks(
     .await;
 
     for channel_id in &server.channels {
-        let channel = Reference::from_unchecked(channel_id).as_channel(db).await?;
+        let channel = match Reference::from_unchecked(channel_id).as_channel(db).await {
+            Ok(channel) => channel,
+            Err(error) => {
+                log::warn!(
+                    "Skipping voice permission refresh for missing channel {} after role reorder: {:?}",
+                    channel_id,
+                    error
+                );
+                continue;
+            }
+        };
 
-        sync_voice_permissions(db, voice_client, &channel, Some(&server), None).await?;
+        if let Err(error) =
+            sync_voice_permissions(db, voice_client, &channel, Some(&server), None).await
+        {
+            log::warn!(
+                "Role reorder succeeded, but voice permission refresh failed for channel {}: {:?}",
+                channel_id,
+                error
+            );
+        }
     }
 
-    Ok(Json(server.into()))
+    Ok(Json(server.to_member_view()))
 }
 
 #[cfg(test)]

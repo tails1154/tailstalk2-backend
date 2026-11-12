@@ -94,6 +94,8 @@ pub enum ErrorType {
         max: usize,
     },
     EmptyMessage,
+    /// The server's AutoMod rules rejected the message.
+    AutoModBlocked,
     PayloadTooLarge,
     CannotRemoveYourself,
     GroupTooLarge {

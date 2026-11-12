@@ -307,7 +307,12 @@ impl State {
         Ok(EventV1::Ready {
             users: if fields.users { Some(users) } else { None },
             servers: if fields.servers {
-                Some(servers.into_iter().map(Into::into).collect())
+                Some(
+                    servers
+                        .into_iter()
+                        .map(|server| server.to_member_view())
+                        .collect(),
+                )
             } else {
                 None
             },

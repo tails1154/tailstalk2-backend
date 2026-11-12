@@ -25,6 +25,10 @@ auto_derived_partial!(
         #[serde(skip_serializing_if = "Option::is_none", default)]
         pub announcement: Option<String>,
 
+        /// AutoMod configuration for this server.
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        pub automod: Option<v0::AutoModConfig>,
+
         /// Channels within this server
         // TODO: investigate if this is redundant and can be removed
         pub channels: Vec<String>,
@@ -136,6 +140,7 @@ auto_derived!(
         SystemMessages,
         Icon,
         Banner,
+        AutoMod,
     }
 
     /// Optional fields on server object
@@ -146,6 +151,37 @@ auto_derived!(
 );
 
 #[allow(clippy::disallowed_methods)]
+/// Whether `phrase` appears in `content` as a standalone word or phrase.
+/// Both arguments are expected to be lowercased already.
+fn contains_blocked_phrase(content: &str, phrase: &str) -> bool {
+    let phrase = phrase.trim();
+    if phrase.is_empty() {
+        return false;
+    }
+
+    let mut search_from = 0;
+    while let Some(relative_start) = content[search_from..].find(phrase) {
+        let start = search_from + relative_start;
+        let end = start + phrase.len();
+        let has_word_before = content[..start]
+            .chars()
+            .next_back()
+            .is_some_and(char::is_alphanumeric);
+        let has_word_after = content[end..]
+            .chars()
+            .next()
+            .is_some_and(char::is_alphanumeric);
+
+        if !has_word_before && !has_word_after {
+            return true;
+        }
+
+        search_from = end;
+    }
+
+    false
+}
+
 impl Server {
     /// Create a server
     pub async fn create(
@@ -160,6 +196,7 @@ impl Server {
             name: data.name,
             description: data.description,
             announcement: None,
+            automod: None,
             channels: vec![],
             nsfw: data.nsfw.unwrap_or(false),
             default_permissions: *DEFAULT_PERMISSION_SERVER as i64,
@@ -198,6 +235,37 @@ impl Server {
         Ok((server, channels))
     }
 
+    /// Whether this server's AutoMod rules block the given message content.
+    pub fn automod_blocks(&self, content: &str) -> bool {
+        let Some(automod) = &self.automod else {
+            return false;
+        };
+        if !automod.enabled {
+            return false;
+        }
+
+        let lowered = content.to_lowercase();
+        let blocked = automod
+            .blocked_words
+            .iter()
+            .map(|word| word.trim().to_lowercase())
+            .any(|word| contains_blocked_phrase(&lowered, &word));
+        let mentions = lowered
+            .split_whitespace()
+            .filter(|token| token.starts_with('@'))
+            .count() as u32;
+        let mention_spam = automod.mention_limit.is_some_and(|limit| mentions > limit);
+
+        blocked || mention_spam
+    }
+
+    /// Server as seen by members who lack ManageServer: AutoMod config is stripped.
+    pub fn to_member_view(self) -> v0::Server {
+        let mut server: v0::Server = self.into();
+        server.automod = None;
+        server
+    }
+
     /// Update server data
     pub async fn update(
         &mut self,
@@ -213,10 +281,18 @@ impl Server {
 
         db.update_server(&self.id, &partial, remove.clone()).await?;
 
+        // AutoMod config is only returned to managers via fetch, never broadcast to all members.
+        let mut public_partial = partial;
+        public_partial.automod = None;
+        let public_remove: Vec<FieldsServer> = remove
+            .into_iter()
+            .filter(|field| !matches!(field, FieldsServer::AutoMod))
+            .collect();
+
         EventV1::ServerUpdate {
             id: self.id.clone(),
-            data: partial.into(),
-            clear: remove.into_iter().map(|v| v.into()).collect(),
+            data: public_partial.into(),
+            clear: public_remove.into_iter().map(|v| v.into()).collect(),
         }
         .p(self.id.clone())
         .await;
@@ -240,6 +316,7 @@ impl Server {
         match field {
             FieldsServer::Description => self.description = None,
             FieldsServer::Announcement => self.announcement = None,
+            FieldsServer::AutoMod => self.automod = None,
             FieldsServer::Categories => self.categories = None,
             FieldsServer::SystemMessages => self.system_messages = None,
             FieldsServer::Icon => self.icon = None,
@@ -258,6 +335,7 @@ impl Server {
                 name,
                 (FieldsServer::Description) description,
                 (FieldsServer::Announcement) announcement,
+                (FieldsServer::AutoMod) automod,
                 (FieldsServer::Categories) categories,
                 (FieldsServer::SystemMessages) system_messages,
                 roles,

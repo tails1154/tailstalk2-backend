@@ -176,6 +176,7 @@ impl IntoDocumentPath for FieldsServer {
             FieldsServer::Announcement => "announcement",
             FieldsServer::Icon => "icon",
             FieldsServer::SystemMessages => "system_messages",
+            FieldsServer::AutoMod => "automod",
         })
     }
 }

@@ -3,7 +3,10 @@ use revolt_database::{
     Database, User,
 };
 use revolt_models::v0;
-use revolt_permissions::{calculate_channel_permissions, ChannelPermission, PermissionQuery};
+use revolt_permissions::{
+    calculate_channel_permissions, calculate_server_permissions, ChannelPermission,
+    PermissionQuery,
+};
 use revolt_result::{create_error, Result};
 use rocket::{serde::json::Json, State};
 
@@ -24,6 +27,11 @@ pub async fn fetch(
         return Err(create_error!(NotFound));
     }
 
+    // AutoMod config (blocked words) is only visible to users who can manage the server.
+    let can_manage = calculate_server_permissions(&mut query)
+        .await
+        .has_channel_permission(ChannelPermission::ManageServer);
+
     if let Some(true) = options.include_channels {
         let all_channels = db.fetch_channels(&server.channels).await?;
         let mut visible_channels: Vec<v0::Channel> = vec![];
@@ -39,10 +47,18 @@ pub async fn fetch(
         }
 
         Ok(Json(v0::FetchServerResponse::ServerWithChannels {
-            server: server.into(),
+            server: if can_manage {
+                server.into()
+            } else {
+                server.to_member_view()
+            },
             channels: visible_channels,
         }))
-    } else {
+    } else if can_manage {
         Ok(Json(v0::FetchServerResponse::JustServer(server.into())))
+    } else {
+        Ok(Json(v0::FetchServerResponse::JustServer(
+            server.to_member_view(),
+        )))
     }
 }

@@ -38,6 +38,13 @@ pub async fn message_send(
 
     // Ensure we have permissions to send a message
     let channel = target.as_channel(db).await?;
+    // Load the server independently from the permission query. Privileged users
+    // can short-circuit permission calculation before it populates server_ref,
+    // but AutoMod must still apply to their messages.
+    let server = match channel.server() {
+        Some(server_id) => Some(db.fetch_server(server_id).await?),
+        None => None,
+    };
     let mut query = DatabasePermissionQuery::new(db, &user).channel(&channel);
     let permissions = calculate_channel_permissions(&mut query).await;
     permissions.throw_if_lacking_channel_permission(ChannelPermission::SendMessage)?;
@@ -141,7 +148,7 @@ pub async fn message_send(
     }
 
     // Disallow mentions for new users (TRUST-0: <12 hours age) in public servers
-    let allow_mentions = if let Some(server) = query.server_ref() {
+    let allow_mentions = if let Some(server) = server.as_ref() {
         if server.discoverable {
             (ulid::Ulid::from_string(&user.id)
                 .unwrap()
@@ -155,10 +162,13 @@ pub async fn message_send(
     } else {
         true
     };
-    let xp_server_id = query
-        .server_ref()
-        .clone()
-        .map(|server| server.id.clone());
+    let xp_server_id = server.as_ref().map(|server| server.id.clone());
+
+    if let Some(server) = server.as_ref() {
+        if server.automod_blocks(data.content.as_deref().unwrap_or_default()) {
+            return Err(create_error!(AutoModBlocked));
+        }
+    }
 
     // Create the message
     let author: v0::User = user.clone().into(db, Some(&user)).await;
@@ -178,19 +188,19 @@ pub async fn message_send(
         .map(|member| member.clone().into_owned().into());
 
     let message = Message::create_from_api(
-            db,
-            Some(amqp),
-            channel,
-            data,
-            v0::MessageAuthor::User(&author),
-            Some(model_user.clone()),
-            model_member.clone(),
-            user.limits().await,
-            idempotency,
-            permissions.has_channel_permission(ChannelPermission::SendEmbeds),
-            allow_mentions,
-        )
-        .await?;
+        db,
+        Some(amqp),
+        channel,
+        data,
+        v0::MessageAuthor::User(&author),
+        Some(model_user.clone()),
+        model_member.clone(),
+        user.limits().await,
+        idempotency,
+        permissions.has_channel_permission(ChannelPermission::SendEmbeds),
+        allow_mentions,
+    )
+    .await?;
 
     if user.bot.is_none() {
         crate::routes::users::xp::award_message(db, &user.id, xp_server_id.as_deref()).await;

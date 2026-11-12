@@ -9,6 +9,21 @@ use validator::Validate;
 #[cfg(feature = "rocket")]
 use rocket::FromForm;
 
+auto_derived!(
+    /// Server AutoMod configuration.
+    pub struct AutoModConfig {
+        /// Whether AutoMod checks are active.
+        #[cfg_attr(feature = "serde", serde(default))]
+        pub enabled: bool,
+        /// Case-insensitive words or phrases blocked from messages.
+        #[cfg_attr(feature = "serde", serde(default))]
+        pub blocked_words: Vec<String>,
+        /// Maximum number of mention-like tokens allowed in one message.
+        #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+        pub mention_limit: Option<u32>,
+    }
+);
+
 auto_derived_partial!(
     /// Server
     pub struct Server {
@@ -26,6 +41,10 @@ auto_derived_partial!(
         /// Optional announcement shown to members at the top of the server.
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         pub announcement: Option<String>,
+
+        /// AutoMod configuration for this server.
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        pub automod: Option<AutoModConfig>,
 
         /// Channels within this server
         // TODO: investigate if this is redundant and can be removed
@@ -125,6 +144,7 @@ auto_derived!(
         SystemMessages,
         Icon,
         Banner,
+        AutoMod,
     }
 
     /// Optional fields on server object
@@ -175,6 +195,7 @@ auto_derived!(
         /// Announcement shown to members at the top of the server.
         #[cfg_attr(feature = "validator", validate(length(min = 0, max = 1024)))]
         pub announcement: Option<String>,
+
         /// Whether this server is age-restricted
         #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
         pub nsfw: Option<bool>,
@@ -242,6 +263,9 @@ auto_derived!(
         /// Optional announcement shown to server members
         #[cfg_attr(feature = "validator", validate(length(min = 0, max = 1024)))]
         pub announcement: Option<String>,
+
+        /// AutoMod configuration for this server.
+        pub automod: Option<AutoModConfig>,
 
         /// Attachment Id for icon
         pub icon: Option<String>,
