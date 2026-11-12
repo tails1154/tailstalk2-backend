@@ -67,6 +67,10 @@ pub async fn create_account(
     // Ensure password is safe to use
     assert_safe(&data.password).await?;
 
+    // Keep a copy of the address for the optional marketing list
+    // (taken before `data.invite` is moved below)
+    let marketing_email = (!data.marketing_opt_out).then(|| data.email.clone());
+
     // If required, fetch valid invite
     let invite = if config().await.api.registration.invite_only {
         if let Some(invite) = data.invite {
@@ -79,7 +83,8 @@ pub async fn create_account(
     };
 
     // Create account
-    let mut account = Account::new(db, data.email, data.password, false).await?;
+    // `true` sends the verification email (no-op when SMTP is unconfigured)
+    let mut account = Account::new(db, data.email, data.password, true).await?;
     if account.registration_ip.is_none() {
         account.registration_ip = registration_ip;
         account.registration_ip_at = Some(iso8601_timestamp::Timestamp::now_utc());
@@ -94,7 +99,39 @@ pub async fn create_account(
         db.save_account_invite(&invite).await?;
     }
 
+    // Subscribe to marketing in the background; signup never waits on Brevo
+    if let Some(email) = marketing_email {
+        tokio::spawn(subscribe_to_marketing(email));
+    }
+
     Ok(EmptyResponse)
+}
+
+/// Add an opted-in address to the Brevo marketing list.
+/// Failures are logged without the address, so signup is never affected.
+async fn subscribe_to_marketing(email: String) {
+    let marketing = &config().await.api.marketing;
+    if marketing.brevo_api_key.is_empty() {
+        return;
+    }
+
+    let body = serde_json::json!({
+        "email": email,
+        "listIds": [marketing.brevo_list_id],
+        "updateEnabled": true,
+    });
+
+    match reqwest::Client::new()
+        .post("https://api.brevo.com/v3/contacts")
+        .header("api-key", &marketing.brevo_api_key)
+        .json(&body)
+        .send()
+        .await
+    {
+        Ok(res) if res.status().is_success() => {}
+        Ok(res) => log::warn!("Brevo marketing subscribe failed with status {}", res.status()),
+        Err(error) => log::warn!("Brevo marketing subscribe request failed: {error}"),
+    }
 }
 
 #[cfg(test)]

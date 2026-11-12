@@ -311,6 +311,18 @@ pub struct Api {
     #[serde(default)]
     pub privacy: ApiPrivacy,
     pub stripe: ApiStripe,
+    #[serde(default)]
+    pub marketing: ApiMarketing,
+}
+
+/// Brevo settings for adding opted-in members to a marketing list.
+/// Leave `brevo_api_key` empty to disable marketing sync.
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct ApiMarketing {
+    #[serde(default)]
+    pub brevo_api_key: String,
+    #[serde(default)]
+    pub brevo_list_id: i64,
 }
 
 #[derive(Deserialize, Debug, Clone)]

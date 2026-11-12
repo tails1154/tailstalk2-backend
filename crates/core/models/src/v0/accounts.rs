@@ -31,6 +31,9 @@ auto_derived!(
         pub invite: Option<String>,
         /// Captcha verification code
         pub captcha: Option<String>,
+        /// Whether the user declined marketing emails (defaults to subscribed)
+        #[cfg_attr(feature = "serde", serde(default))]
+        pub marketing_opt_out: bool,
     }
 
     pub struct AccountInfo {
