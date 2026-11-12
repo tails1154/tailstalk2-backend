@@ -19,6 +19,13 @@ use rocket::State;
 use rocket_empty::EmptyResponse;
 use tokio::time::sleep;
 
+const AISD_DOMAIN: &str = "cats.angletonisd.net";
+
+/// AISD student IDs start with 4 and are 6 digits long.
+fn is_valid_aisd_student_id(id: &str) -> bool {
+    id.len() == 6 && id.starts_with('4') && id.bytes().all(|b| b.is_ascii_digit())
+}
+
 /// # Create Account
 ///
 /// Create a new account.
@@ -47,6 +54,15 @@ pub async fn create_account(
 
     // Make sure email is valid and not blocked
     validate_email(&data.email)?;
+
+    // AISD student emails must use a valid student ID as the local part
+    if let Some((local, domain)) = data.email.rsplit_once('@') {
+        if domain.eq_ignore_ascii_case(AISD_DOMAIN) && !is_valid_aisd_student_id(local) {
+            return Err(create_error!(FailedValidation {
+                error: "Invalid AISD student ID".to_owned()
+            }));
+        }
+    }
 
     // Ensure password is safe to use
     assert_safe(&data.password).await?;
