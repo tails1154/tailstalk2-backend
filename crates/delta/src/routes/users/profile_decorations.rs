@@ -17,7 +17,7 @@ pub struct DecorationResponse {
     pub id: String,
     pub name: String,
     pub asset_url: String,
-    pub price_xp: i64,
+    pub price_points: i64,
     pub enabled: bool,
     pub owned: bool,
     pub equipped: bool,
@@ -27,15 +27,24 @@ pub struct DecorationResponse {
 pub struct CreateDecoration {
     pub name: String,
     pub asset_id: String,
-    pub price_xp: i64,
+    pub price_points: i64,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct UpdateDecoration {
     pub name: Option<String>,
     pub asset_id: Option<String>,
-    pub price_xp: Option<i64>,
+    pub price_points: Option<i64>,
     pub enabled: Option<bool>,
+}
+
+/// Price in Tails Points. Documents created before the points economy stored `price_xp`.
+pub(crate) fn price_points(document: &Document) -> i64 {
+    document
+        .get_i64("price_points")
+        .or_else(|_| document.get_i64("price_xp"))
+        .unwrap_or(0)
+        .max(0)
 }
 
 fn moderator(user: &User) -> bool {
@@ -66,7 +75,7 @@ async fn response(db: &Database, user: &User, document: Document) -> Result<Deco
         id: id.to_owned(),
         name,
         asset_url: asset_url(asset_id).await,
-        price_xp: document.get_i64("price_xp").unwrap_or(0),
+        price_points: price_points(&document),
         enabled: document.get_bool("enabled").unwrap_or(true),
         owned,
         equipped,
@@ -98,12 +107,13 @@ pub async fn purchase(db: &State<Database>, user: User, decoration_id: String) -
         .await.map_err(|_| create_error!(InternalError))?.is_some() {
         return Err(create_error!(FailedValidation { error: "Decoration already owned".to_owned() }));
     }
-    let price = decoration.get_i64("price_xp").unwrap_or(0).max(0);
+    let price = price_points(&decoration);
+    // Spend Tails Points only; XP (and therefore level) is never reduced by shop purchases.
     let changed = database.col::<Document>("user_xp").update_one(
-        doc! { "_id": &user.id, "xp": { "$gte": price } },
-        doc! { "$inc": { "xp": -price } },
+        doc! { "_id": &user.id, "tails_points": { "$gte": price } },
+        doc! { "$inc": { "tails_points": -price } },
     ).await.map_err(|_| create_error!(InternalError))?;
-    if changed.modified_count != 1 { return Err(create_error!(FailedValidation { error: "Not enough XP".to_owned() })); }
+    if changed.modified_count != 1 { return Err(create_error!(FailedValidation { error: "Not enough Tails Points".to_owned() })); }
     database.col::<Document>(OWNERSHIP).insert_one(doc! {
         "_id": Ulid::new().to_string(), "user_id": &user.id, "decoration_id": &decoration_id,
     }).await.map_err(|_| create_error!(InternalError))?;
@@ -140,12 +150,12 @@ pub async fn unequip(db: &State<Database>, mut user: User) -> Result<Json<serde_
 #[post("/profile-decorations", data = "<data>")]
 pub async fn create(db: &State<Database>, user: User, data: Json<CreateDecoration>) -> Result<Json<DecorationResponse>> {
     if !moderator(&user) { return Err(create_error!(NotPrivileged)); }
-    if data.name.trim().is_empty() || data.name.len() > 64 || data.asset_id.is_empty() || data.price_xp < 0 {
+    if data.name.trim().is_empty() || data.name.len() > 64 || data.asset_id.is_empty() || data.price_points < 0 {
         return Err(create_error!(FailedValidation { error: "Invalid decoration".to_owned() }));
     }
     let id = Ulid::new().to_string();
     mongo(db)?.col::<Document>(DECORATIONS).insert_one(doc! {
-        "_id": &id, "name": data.name.trim(), "asset_id": &data.asset_id, "price_xp": data.price_xp,
+        "_id": &id, "name": data.name.trim(), "asset_id": &data.asset_id, "price_points": data.price_points,
         "enabled": true, "created_by": &user.id,
     }).await.map_err(|_| create_error!(InternalError))?;
     let document = mongo(db)?.col::<Document>(DECORATIONS).find_one(doc! { "_id": &id }).await
@@ -161,7 +171,7 @@ pub async fn update(db: &State<Database>, user: User, decoration_id: String, dat
     let mut set = Document::new();
     if let Some(name) = &data.name { if name.trim().is_empty() || name.len() > 64 { return Err(create_error!(FailedValidation { error: "Invalid name".to_owned() })); } set.insert("name", name.trim()); }
     if let Some(asset_id) = &data.asset_id { set.insert("asset_id", asset_id); }
-    if let Some(price_xp) = data.price_xp { if price_xp < 0 { return Err(create_error!(FailedValidation { error: "Invalid price".to_owned() })); } set.insert("price_xp", price_xp); }
+    if let Some(price_points) = data.price_points { if price_points < 0 { return Err(create_error!(FailedValidation { error: "Invalid price".to_owned() })); } set.insert("price_points", price_points); }
     if let Some(enabled) = data.enabled { set.insert("enabled", enabled); }
     if !set.is_empty() { mongo(db)?.col::<Document>(DECORATIONS).update_one(doc! { "_id": &decoration_id }, doc! { "$set": set }).await.map_err(|_| create_error!(InternalError))?; }
     Ok(Json(json!({ "ok": true })))

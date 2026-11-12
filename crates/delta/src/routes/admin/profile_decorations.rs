@@ -15,7 +15,7 @@ pub struct AdminDecoration {
     pub id: String,
     pub name: String,
     pub asset_url: String,
-    pub price_xp: i64,
+    pub price_points: i64,
     pub enabled: bool,
 }
 
@@ -23,7 +23,7 @@ pub struct AdminDecoration {
 pub struct CreateDecoration {
     pub name: String,
     pub asset_id: String,
-    pub price_xp: i64,
+    pub price_points: i64,
 }
 
 fn mongo(db: &Database) -> Result<&revolt_database::MongoDb> {
@@ -43,7 +43,7 @@ async fn response(document: Document) -> Result<AdminDecoration> {
         id: document.get_str("_id").map_err(|_| create_error!(InternalError))?.to_owned(),
         name: document.get_str("name").unwrap_or("Decoration").to_owned(),
         asset_url: asset_url(asset_id).await,
-        price_xp: document.get_i64("price_xp").unwrap_or(0),
+        price_points: crate::routes::users::profile_decorations::price_points(&document),
         enabled: document.get_bool("enabled").unwrap_or(true),
     })
 }
@@ -68,7 +68,7 @@ pub async fn create(
     db: &State<Database>,
     data: Json<CreateDecoration>,
 ) -> Result<Json<AdminDecoration>> {
-    if data.name.trim().is_empty() || data.name.len() > 64 || data.asset_id.is_empty() || data.price_xp < 0 {
+    if data.name.trim().is_empty() || data.name.len() > 64 || data.asset_id.is_empty() || data.price_points < 0 {
         return Err(create_error!(FailedValidation { error: "Invalid decoration".to_owned() }));
     }
     let id = Ulid::new().to_string();
@@ -76,7 +76,7 @@ pub async fn create(
         "_id": &id,
         "name": data.name.trim(),
         "asset_id": &data.asset_id,
-        "price_xp": data.price_xp,
+        "price_points": data.price_points,
         "enabled": true,
     }).await.map_err(|_| create_error!(InternalError))?;
     let document = mongo(db)?.col::<Document>(DECORATIONS).find_one(doc! { "_id": &id }).await

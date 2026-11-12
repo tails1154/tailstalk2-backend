@@ -204,6 +204,7 @@ pub async fn message_send(
 
     if user.bot.is_none() {
         crate::routes::users::xp::award_message(db, &user.id, xp_server_id.as_deref()).await;
+        crate::routes::users::quests::record_message(db, &user.id).await;
     }
 
     Ok(Json(message.into_model(Some(model_user), model_member)))
