@@ -39,6 +39,10 @@ revolt-permissions = { workspace = true, features = ["serde", "bson"] }
 revolt-parser = { workspace = true }
 revolt-coalesced = { workspace = true }
 
+# Build OpenSSL into the binaries so they don't depend on the host's libssl
+# version (a system upgrade to OpenSSL 4 broke the containers' libssl3 runtime).
+openssl-sys = { version = "0.9", features = ["vendored"] }
+
 # Utility
 log = { workspace = true }
 lru = { workspace = true }
