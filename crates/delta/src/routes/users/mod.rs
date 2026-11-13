@@ -32,6 +32,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         get_default_avatar::default_avatar,
         fetch_profile::profile,
         warnings::get_warnings,
+        warnings::acknowledge_warnings,
         xp::fetch,
         profile_decorations::list,
         profile_decorations::purchase,

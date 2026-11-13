@@ -52,6 +52,7 @@ impl<'r> Responder<'r, 'static> for Error {
             ErrorType::ServerSuspended => Status::Forbidden,
             ErrorType::InvalidRole => Status::NotFound,
             ErrorType::Banned => Status::Forbidden,
+            ErrorType::Suspended { .. } => Status::Forbidden,
             ErrorType::AlreadyInServer => Status::Conflict,
             ErrorType::CannotTimeoutYourself => Status::BadRequest,
 

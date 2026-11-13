@@ -260,6 +260,34 @@ impl User {
     }
 
     /// Get the relationship with another user
+    /// Whether this user is banned, or suspended and still within the suspension
+    ///
+    /// Requests from restricted users are rejected, so suspensions take effect
+    /// immediately even for sessions created before the suspension.
+    pub fn is_restricted(&self) -> bool {
+        let flags = self.flags.unwrap_or(0);
+        if flags & UserFlags::Banned as i32 != 0 {
+            return true;
+        }
+        if flags & UserFlags::SuspendedUntil as i32 != 0 {
+            return self
+                .suspended_until
+                .map_or(true, |until| until > Timestamp::now_utc());
+        }
+        false
+    }
+
+    /// Error to return for a request from a restricted user
+    pub fn restriction_error(&self) -> revolt_result::Error {
+        if self.flags.unwrap_or(0) & UserFlags::Banned as i32 != 0 {
+            create_error!(Banned)
+        } else {
+            create_error!(Suspended {
+                until: self.suspended_until.map(|t| t.to_string())
+            })
+        }
+    }
+
     pub fn relationship_with(&self, user_b: &str) -> RelationshipStatus {
         if self.id == user_b {
             return RelationshipStatus::User;

@@ -35,10 +35,11 @@ impl<'r> FromRequest<'r> for User {
             })
             .await;
 
-        if let Some(user) = user {
-            Outcome::Success(user.clone())
-        } else {
-            Outcome::Error((Status::Unauthorized, create_error!(InvalidSession)))
+        match user {
+            Some(user) if !user.is_restricted() => Outcome::Success(user.clone()),
+            Some(user) => Outcome::Error((Status::Forbidden, user.restriction_error())),
+            None => Outcome::Error((Status::Unauthorized, create_error!(InvalidSession))),
         }
     }
 }
+

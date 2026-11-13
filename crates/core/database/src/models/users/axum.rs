@@ -22,7 +22,11 @@ where
             parts.headers.get("x-session-token").map(|v| v.to_str())
         {
             let session = db.fetch_session_by_token(session_token).await?;
-            db.fetch_user(&session.user_id).await
+            let user = db.fetch_user(&session.user_id).await?;
+            if user.is_restricted() {
+                return Err(user.restriction_error());
+            }
+            Ok(user)
         } else {
             Err(create_error!(NotAuthenticated))
         }

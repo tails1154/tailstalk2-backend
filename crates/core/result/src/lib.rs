@@ -116,6 +116,10 @@ pub enum ErrorType {
     ServerSuspended,
     InvalidRole,
     Banned,
+    /// The account is suspended until the given time, if one was set
+    Suspended {
+        until: Option<String>,
+    },
     TooManyServers {
         max: usize,
     },
