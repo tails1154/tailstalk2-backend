@@ -1,7 +1,7 @@
 use revolt_database::{
     mongodb::bson::{self, doc},
     util::email::email_templates,
-    Database, PartialUser, PasswordReset,
+    Database, EmailVerification, PartialUser, PasswordReset,
 };
 use revolt_config::config;
 use revolt_models::v0::UserBadges;
@@ -389,6 +389,23 @@ pub async fn admin_suspend_user(
             .await
             .map_err(|_| revolt_result::create_error!(InternalError))?;
     }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// # Verify Email
+///
+/// Manually mark a user's email address as verified.
+#[openapi(tag = "Admin")]
+#[post("/users/<id>/verify-email")]
+pub async fn admin_verify_email(
+    _admin: AdminUser,
+    db: &State<Database>,
+    id: String,
+) -> Result<Json<serde_json::Value>> {
+    let mut account = db.fetch_account(&id).await?;
+    account.verification = EmailVerification::Verified;
+    account.save(db).await?;
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }

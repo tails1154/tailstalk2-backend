@@ -29,6 +29,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         users::admin_unban_user,
         users::admin_suspend_user,
         users::admin_unsuspend_user,
+        users::admin_verify_email,
         users::admin_warn_user,
         users::admin_clear_warnings,
         users::admin_delete_warning,
