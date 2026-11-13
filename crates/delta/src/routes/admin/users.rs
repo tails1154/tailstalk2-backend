@@ -39,6 +39,7 @@ pub struct WarnUserData {
 #[derive(Deserialize, JsonSchema, Debug)]
 pub struct SuspendUserData {
     pub hours: i64,
+    pub reason: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]
@@ -374,23 +375,50 @@ pub async fn admin_suspend_user(
     let until =
         iso8601_timestamp::Timestamp::now_utc() + iso8601_timestamp::Duration::hours(data.hours);
 
-    match db.inner() {
-        Database::MongoDb(mongo) => {
-            mongo
-                .col::<bson::Document>("users")
-                .update_one(
-                    doc! { "_id": &id },
-                    doc! {
-                        "$set": {
-                            "flags": 1i32,
-                            "suspended_until": bson::to_bson(&until).unwrap_or_default(),
-                        }
-                    },
-                )
-                .await
-                .map_err(|_| revolt_result::create_error!(InternalError))?;
-        }
-        _ => {}
+    let mut user = db.fetch_user(&id).await?;
+    user.suspend(db, Some(until), data.reason.clone().map(|r| vec![r]))
+        .await?;
+
+    if let (Some(reason), Database::MongoDb(mongo)) = (data.reason.as_deref(), db.inner()) {
+        mongo
+            .col::<bson::Document>("users")
+            .update_one(
+                doc! { "_id": &id },
+                doc! { "$set": { "admin_suspend_reason": reason } },
+            )
+            .await
+            .map_err(|_| revolt_result::create_error!(InternalError))?;
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// # Unsuspend User
+///
+/// Lift a suspension and re-enable the account. Banned users must be unbanned instead.
+#[openapi(tag = "Admin")]
+#[post("/users/<id>/unsuspend")]
+pub async fn admin_unsuspend_user(
+    _admin: AdminUser,
+    db: &State<Database>,
+    id: String,
+) -> Result<Json<serde_json::Value>> {
+    let mut user = db.fetch_user(&id).await?;
+    if user.flags.unwrap_or(0) & 4 != 0 {
+        return Err(revolt_result::create_error!(Banned));
+    }
+
+    user.unsuspend(db).await?;
+
+    if let Database::MongoDb(mongo) = db.inner() {
+        mongo
+            .col::<bson::Document>("users")
+            .update_one(
+                doc! { "_id": &id },
+                doc! { "$unset": { "admin_suspend_reason": "" as &str } },
+            )
+            .await
+            .map_err(|_| revolt_result::create_error!(InternalError))?;
     }
 
     Ok(Json(serde_json::json!({ "ok": true })))

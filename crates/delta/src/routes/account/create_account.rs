@@ -115,9 +115,19 @@ async fn subscribe_to_marketing(email: String) {
         return;
     }
 
+    // AISD student addresses go to their own list when one is configured
+    let is_aisd = email
+        .rsplit_once('@')
+        .is_some_and(|(_, domain)| domain.eq_ignore_ascii_case(AISD_DOMAIN));
+    let list_id = if is_aisd && marketing.brevo_aisd_list_id != 0 {
+        marketing.brevo_aisd_list_id
+    } else {
+        marketing.brevo_list_id
+    };
+
     let body = serde_json::json!({
         "email": email,
-        "listIds": [marketing.brevo_list_id],
+        "listIds": [list_id],
         "updateEnabled": true,
     });
 

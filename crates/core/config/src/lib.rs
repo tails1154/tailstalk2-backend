@@ -323,6 +323,9 @@ pub struct ApiMarketing {
     pub brevo_api_key: String,
     #[serde(default)]
     pub brevo_list_id: i64,
+    /// Separate list for `cats.angletonisd.net` addresses; 0 uses `brevo_list_id`
+    #[serde(default)]
+    pub brevo_aisd_list_id: i64,
 }
 
 #[derive(Deserialize, Debug, Clone)]

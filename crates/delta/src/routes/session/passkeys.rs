@@ -379,9 +379,15 @@ pub async fn login_finish(
     }
     let account = db.fetch_account(&challenge.user_id).await?;
     if account.disabled {
+        let suspended_until = db
+            .fetch_user(&account.id)
+            .await
+            .ok()
+            .and_then(|u| u.suspended_until);
         return Ok(Json(json!(v0::ResponseLogin::Disabled {
             user_id: account.id,
-            reason: None
+            reason: None,
+            suspended_until,
         })));
     }
     if account.mfa.is_active() {

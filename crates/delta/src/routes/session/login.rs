@@ -35,7 +35,7 @@ pub async fn login(
     ))
     .await;
 
-    let (account, name) = match data.into_inner() {
+    let (mut account, name) = match data.into_inner() {
         v0::DataLogin::Email {
             email,
             password,
@@ -151,8 +151,20 @@ pub async fn login(
     // Generate a session name
     let name = name.unwrap_or_else(|| "Unknown".to_string());
 
+    // Lift a suspension whose end time has passed
+    if account.disabled {
+        if let Ok(user) = db.fetch_user(&account.id).await {
+            if user.suspended_until.is_some_and(|until| until <= Timestamp::now_utc()) {
+                user.clone().unsuspend(db).await?;
+                account.disabled = false;
+            }
+        }
+    }
+
     // Prevent disabled accounts from logging in
     if account.disabled {
+        let user = db.fetch_user(&account.id).await.ok();
+        let suspended_until = user.as_ref().and_then(|u| u.suspended_until);
         let reason = match db.inner() {
             Database::MongoDb(mongo) => mongo
                 .col::<Document>("users")
@@ -160,12 +172,18 @@ pub async fn login(
                 .await
                 .ok()
                 .flatten()
-                .and_then(|user| user.get_str("admin_ban_reason").ok().map(str::to_owned)),
+                .and_then(|doc| {
+                    doc.get_str("admin_ban_reason")
+                        .or_else(|_| doc.get_str("admin_suspend_reason"))
+                        .ok()
+                        .map(str::to_owned)
+                }),
             _ => None,
         };
         return Ok(Json(v0::ResponseLogin::Disabled {
             user_id: account.id,
             reason,
+            suspended_until,
         }));
     }
 

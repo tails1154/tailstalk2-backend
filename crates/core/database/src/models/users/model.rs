@@ -697,14 +697,14 @@ impl User {
         }
     }
 
-    /// Suspend the user
+    /// Suspend the user until the given time, or indefinitely if `until` is `None`
     ///
-    /// - If a duration is specified, the user will be automatically unsuspended after the given time.
+    /// - The account is disabled and all of its sessions are removed.
     /// - If a reason is specified, an email will be sent.
     pub async fn suspend(
         &mut self,
         db: &Database,
-        duration_days: Option<usize>,
+        until: Option<Timestamp>,
         reason: Option<Vec<String>>,
     ) -> Result<()> {
         let mut account = db.fetch_account(&self.id).await?;
@@ -717,9 +717,7 @@ impl User {
             db,
             PartialUser {
                 flags: Some(UserFlags::SuspendedUntil as i32),
-                suspended_until: duration_days.and_then(|dur| {
-                    Timestamp::now_utc().checked_add(iso8601_timestamp::Duration::days(dur as i64))
-                }),
+                suspended_until: until,
                 ..Default::default()
             },
             vec![],
@@ -739,8 +737,8 @@ impl User {
                     json!({
                         "email": account.email,
                         "list": reason.join(", "),
-                        "duration": duration_days,
-                        "duration_display": if duration_days.is_some() {
+                        "duration": until.map(|t| t.to_string()),
+                        "duration_display": if until.is_some() {
                             "block"
                         } else {
                             "none"
@@ -754,20 +752,21 @@ impl User {
         Ok(())
     }
 
-    /// Unsuspend the user
+    /// Lift a suspension and re-enable the account
     pub async fn unsuspend(&mut self, db: &Database) -> Result<()> {
+        let mut account = db.fetch_account(&self.id).await?;
+        account.disabled = false;
+        account.save(db).await?;
+
         self.update(
             db,
             PartialUser {
                 flags: Some(0),
-                suspended_until: None,
                 ..Default::default()
             },
-            vec![],
+            vec![FieldsUser::Suspension],
         )
-        .await?;
-
-        unimplemented!()
+        .await
     }
 
     /// Permanently ban the user

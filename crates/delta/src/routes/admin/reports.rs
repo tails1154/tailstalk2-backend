@@ -245,15 +245,15 @@ pub async fn admin_resolve_report(
                         let hours = data.suspend_hours.unwrap_or(24).max(1);
                         let until = iso8601_timestamp::Timestamp::now_utc()
                             + iso8601_timestamp::Duration::hours(hours);
+                        let mut target = db.fetch_user(&target_id).await?;
+                        target
+                            .suspend(db, Some(until), Some(vec![reason.to_string()]))
+                            .await?;
                         mongo
                             .col::<bson::Document>("users")
                             .update_one(
                                 doc! { "_id": &target_id },
-                                doc! { "$set": {
-                                    "flags": 1i32,
-                                    "suspended_until": bson::to_bson(&until).unwrap_or_default(),
-                                    "admin_suspend_reason": reason,
-                                } },
+                                doc! { "$set": { "admin_suspend_reason": reason } },
                             )
                             .await
                             .map_err(|_| revolt_result::create_error!(InternalError))?;

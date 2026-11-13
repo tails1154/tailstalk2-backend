@@ -84,6 +84,9 @@ auto_derived!(
             user_id: String,
             #[serde(skip_serializing_if = "Option::is_none")]
             reason: Option<String>,
+            /// When a suspension ends, if it has an end time
+            #[serde(skip_serializing_if = "Option::is_none")]
+            suspended_until: Option<Timestamp>,
         },
     }
 
