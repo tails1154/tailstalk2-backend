@@ -146,7 +146,7 @@ pub async fn admin_servers(
         let name = text(&server, "name");
         if !needle.is_empty()
             && !name.to_lowercase().contains(&needle)
-            && !text(&server, "_id").contains(&needle)
+            && !text(&server, "_id").to_lowercase().contains(&needle)
         {
             continue;
         }

@@ -6,13 +6,16 @@ use ed25519_dalek::{Signature, Signer, SigningKey, Verifier};
 use revolt_config::config;
 use revolt_database::{
     util::{permissions::DatabasePermissionQuery, reference::Reference},
-    Database, PartialServer, Role, User,
+    Channel, Database, PartialServer, Role, User,
 };
-use revolt_permissions::{calculate_server_permissions, ChannelPermission};
+use revolt_permissions::{calculate_server_permissions, ChannelPermission, OverrideField};
 use revolt_result::{create_error, Result};
 use rocket::{serde::json::Json, State};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+/// Format version written by this server. Version 1 files had no channels and cannot be verified.
+const BACKUP_VERSION: u8 = 2;
 
 #[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ServerBackup {
@@ -24,10 +27,33 @@ pub struct ServerBackup {
     pub roles: HashMap<String, Role>,
     #[schemars(skip)]
     pub categories: Option<Vec<revolt_database::Category>>,
+    /// Text and voice channels in server order. Messages are not included.
+    #[serde(default)]
+    pub channels: Vec<BackupChannel>,
     pub default_permissions: i64,
     /// Base64 Ed25519 signature over every other field
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
+pub struct BackupChannel {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    #[serde(default)]
+    pub nsfw: bool,
+    pub slowmode: Option<u64>,
+    pub forum: Option<String>,
+    /// Whether this channel also has voice enabled
+    #[serde(default)]
+    pub voice: bool,
+    pub voice_max_users: Option<usize>,
+    #[schemars(skip)]
+    pub default_permissions: Option<OverrideField>,
+    #[schemars(skip)]
+    #[serde(default)]
+    pub role_permissions: BTreeMap<String, OverrideField>,
 }
 
 /// The exact fields covered by the signature, in a fixed order with sorted roles
@@ -39,6 +65,7 @@ struct SignedPayload<'a> {
     description: &'a Option<String>,
     roles: BTreeMap<&'a String, &'a Role>,
     categories: &'a Option<Vec<revolt_database::Category>>,
+    channels: &'a Vec<BackupChannel>,
     default_permissions: i64,
 }
 
@@ -50,6 +77,7 @@ fn signed_payload(backup: &ServerBackup) -> Result<Vec<u8>> {
         description: &backup.description,
         roles: backup.roles.iter().collect(),
         categories: &backup.categories,
+        channels: &backup.channels,
         default_permissions: backup.default_permissions,
     };
     serde_json::to_vec(&payload).map_err(|_| create_error!(InternalError))
@@ -94,7 +122,7 @@ fn verify_backup(key: &SigningKey, backup: &ServerBackup) -> Result<()> {
 /// not required to match the server being restored into. The signature covers it,
 /// so it cannot be changed without invalidating the backup.
 fn validate_backup(backup: &ServerBackup) -> Result<()> {
-    if backup.version != 1 || backup.name.trim().is_empty() {
+    if backup.version != BACKUP_VERSION || backup.name.trim().is_empty() {
         return Err(create_error!(InvalidProperty));
     }
     Ok(())
@@ -113,13 +141,50 @@ pub async fn export(
         .await
         .throw_if_lacking_channel_permission(ChannelPermission::BackupServer)?;
     let key = backup_signing_key().await?;
+    let fetched = db.fetch_channels(&server.channels).await?;
+    // Keep the server's channel order and skip anything that is not a text or voice channel
+    let channels = server
+        .channels
+        .iter()
+        .filter_map(|id| fetched.iter().find(|c| c.id() == id.as_str()))
+        .filter_map(|channel| match channel {
+            Channel::TextChannel {
+                id,
+                name,
+                description,
+                nsfw,
+                slowmode,
+                forum,
+                voice,
+                default_permissions,
+                role_permissions,
+                ..
+            } => Some(BackupChannel {
+                id: id.clone(),
+                name: name.clone(),
+                description: description.clone(),
+                nsfw: *nsfw,
+                slowmode: *slowmode,
+                forum: forum.clone(),
+                voice: voice.is_some(),
+                voice_max_users: voice.as_ref().and_then(|v| v.max_users),
+                default_permissions: *default_permissions,
+                role_permissions: role_permissions
+                    .iter()
+                    .map(|(role, field)| (role.clone(), *field))
+                    .collect(),
+            }),
+            _ => None,
+        })
+        .collect();
     let mut backup = ServerBackup {
-        version: 1,
+        version: BACKUP_VERSION,
         server_id: server.id,
         name: server.name,
         description: server.description,
         roles: server.roles,
         categories: server.categories,
+        channels,
         default_permissions: server.default_permissions,
         signature: None,
     };
@@ -165,19 +230,20 @@ mod tests {
     #[test]
     fn rejects_wrong_version_and_empty_name_but_accepts_any_server() {
         let backup = ServerBackup {
-            version: 2,
+            version: 1,
             server_id: "server".into(),
             name: "Name".into(),
             description: None,
             roles: HashMap::new(),
             categories: None,
+            channels: Vec::new(),
             default_permissions: 0,
             signature: None,
         };
         assert!(validate_backup(&backup).is_err());
 
         let mut backup = backup;
-        backup.version = 1;
+        backup.version = 2;
         backup.server_id = "other".into();
         assert!(validate_backup(&backup).is_ok());
 
@@ -204,12 +270,24 @@ mod tests {
             },
         );
         let mut backup = ServerBackup {
-            version: 1,
+            version: BACKUP_VERSION,
             server_id: "server".into(),
             name: "Name".into(),
             description: Some("Desc".into()),
             roles,
             categories: None,
+            channels: vec![BackupChannel {
+                id: "channel".into(),
+                name: "general".into(),
+                description: None,
+                nsfw: false,
+                slowmode: None,
+                forum: None,
+                voice: true,
+                voice_max_users: Some(10),
+                default_permissions: None,
+                role_permissions: BTreeMap::new(),
+            }],
             default_permissions: 0,
             signature: None,
         };
