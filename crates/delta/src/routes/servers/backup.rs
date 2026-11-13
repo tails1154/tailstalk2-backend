@@ -65,7 +65,9 @@ struct SignedPayload<'a> {
     description: &'a Option<String>,
     roles: BTreeMap<&'a String, &'a Role>,
     categories: &'a Option<Vec<revolt_database::Category>>,
-    channels: &'a Vec<BackupChannel>,
+    /// Only signed for version 2 and later; version 1 files were signed without it
+    #[serde(skip_serializing_if = "Option::is_none")]
+    channels: Option<&'a Vec<BackupChannel>>,
     default_permissions: i64,
 }
 
@@ -77,7 +79,7 @@ fn signed_payload(backup: &ServerBackup) -> Result<Vec<u8>> {
         description: &backup.description,
         roles: backup.roles.iter().collect(),
         categories: &backup.categories,
-        channels: &backup.channels,
+        channels: (backup.version >= 2).then_some(&backup.channels),
         default_permissions: backup.default_permissions,
     };
     serde_json::to_vec(&payload).map_err(|_| create_error!(InternalError))
@@ -122,7 +124,7 @@ fn verify_backup(key: &SigningKey, backup: &ServerBackup) -> Result<()> {
 /// not required to match the server being restored into. The signature covers it,
 /// so it cannot be changed without invalidating the backup.
 fn validate_backup(backup: &ServerBackup) -> Result<()> {
-    if backup.version != BACKUP_VERSION || backup.name.trim().is_empty() {
+    if !(1..=BACKUP_VERSION).contains(&backup.version) || backup.name.trim().is_empty() {
         return Err(create_error!(InvalidProperty));
     }
     Ok(())
@@ -228,9 +230,9 @@ mod tests {
     use rocket::http::{ContentType, Header, Status};
 
     #[test]
-    fn rejects_wrong_version_and_empty_name_but_accepts_any_server() {
+    fn rejects_unknown_version_and_empty_name_but_accepts_any_server() {
         let backup = ServerBackup {
-            version: 1,
+            version: 3,
             server_id: "server".into(),
             name: "Name".into(),
             description: None,
@@ -243,6 +245,8 @@ mod tests {
         assert!(validate_backup(&backup).is_err());
 
         let mut backup = backup;
+        backup.version = 1;
+        assert!(validate_backup(&backup).is_ok());
         backup.version = 2;
         backup.server_id = "other".into();
         assert!(validate_backup(&backup).is_ok());
