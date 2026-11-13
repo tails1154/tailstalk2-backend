@@ -78,9 +78,9 @@ pub enum ChannelPermission {
     /// Bypass slowmode
     BypassSlowmode = 1 << 39,
     /// Export backups of the server
-    BackupServer = 1 << 40,
+    BackupServer = 1 << 14,
     /// Restore backups into the server
-    RestoreServer = 1 << 41,
+    RestoreServer = 1 << 15,
 
     // * Voice permissions
     /// Connect to a voice channel
