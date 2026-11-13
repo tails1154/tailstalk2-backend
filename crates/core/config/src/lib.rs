@@ -313,9 +313,19 @@ pub struct Api {
     pub stripe: ApiStripe,
     #[serde(default)]
     pub marketing: ApiMarketing,
+    #[serde(default)]
+    pub backup: ApiBackup,
 }
 
 /// Brevo settings for adding opted-in members to a marketing list.
+/// Signing settings for server backups
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct ApiBackup {
+    /// Base64-encoded 32-byte Ed25519 seed; empty disables backup export and restore
+    #[serde(default)]
+    pub signing_key: String,
+}
+
 /// Leave `brevo_api_key` empty to disable marketing sync.
 #[derive(Deserialize, Debug, Clone, Default)]
 pub struct ApiMarketing {

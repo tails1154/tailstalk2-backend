@@ -7420,6 +7420,7 @@ dependencies = [
  "bitfield",
  "chrono",
  "dashmap",
+ "ed25519-dalek",
  "futures",
  "hex",
  "hmac 0.12.1",
