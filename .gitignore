@@ -13,3 +13,6 @@ venv/
 livekit.yml
 admin.toml
 .idea
+
+# Build output copied in by deploy.sh
+deploy/
