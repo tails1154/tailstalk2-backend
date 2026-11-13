@@ -32,7 +32,8 @@ pub enum ChannelPermission {
     /// Manage server customisation (includes emoji)
     ManageCustomisation = 1 << 4,
 
-    // % 1 bit reserved
+    /// Edit the server's AutoMod filter. Separate from ManageServer so server managers do not automatically control filtering
+    ManageAutomod = 1 << 5,
 
     // * Member permissions
     /// Kick other members below their ranking

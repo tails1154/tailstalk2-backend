@@ -174,6 +174,21 @@ pub async fn admin_suspend_server(
         )
         .await
         .map_err(|_| revolt_result::create_error!(InternalError))?;
+
+    // Push the change to members who are already connected, so their server list
+    // and open servers update without a reload and suspended channels stop receiving events
+    let mut server = db.fetch_server(&id).await?;
+    server
+        .update(
+            db,
+            revolt_database::PartialServer {
+                admin_suspended: Some(data.suspended),
+                ..Default::default()
+            },
+            vec![],
+        )
+        .await?;
+
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 

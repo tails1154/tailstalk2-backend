@@ -119,6 +119,7 @@ tower-http = "0.5.2"
 
 # Rocket (HTTP server)
 rocket = "0.5.1"
+rocket_ws = "0.1.1"
 rocket_empty = "0.1.1"
 revolt_rocket_okapi = "0.10.0"
 rocket_cors = { git = "https://github.com/lawliet89/rocket_cors", rev = "072d90359b23e9b291df6b672c07c93de9c46011" }

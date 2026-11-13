@@ -100,6 +100,12 @@ auto_derived_partial!(
             serde(skip_serializing_if = "crate::if_false", default)
         )]
         pub discoverable: bool,
+        /// Whether this server is suspended by platform administrators
+        #[cfg_attr(
+            feature = "serde",
+            serde(skip_serializing_if = "crate::if_false", default)
+        )]
+        pub admin_suspended: bool,
     },
     "PartialServer"
 );

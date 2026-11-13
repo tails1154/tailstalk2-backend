@@ -3,7 +3,7 @@ use revolt_database::{
     Database, User,
 };
 use revolt_models::v0;
-use revolt_permissions::PermissionQuery;
+use revolt_permissions::{calculate_server_permissions, ChannelPermission, PermissionQuery};
 use revolt_result::{create_error, Result};
 use rocket::{serde::json::Json, State};
 
@@ -22,6 +22,14 @@ pub async fn fetch(
     let mut query = DatabasePermissionQuery::new(db, &user).server(&server);
     if !query.are_we_a_member().await {
         return Err(create_error!(NotFound));
+    }
+
+    // Role definitions include permission bits, so only people who manage roles or permissions may read them
+    let permissions = calculate_server_permissions(&mut query).await;
+    if !permissions.has_channel_permission(ChannelPermission::ManageRole)
+        && !permissions.has_channel_permission(ChannelPermission::ManagePermissions)
+    {
+        return Err(create_error!(NotPrivileged));
     }
 
     let role = server.roles.remove(&role_id);

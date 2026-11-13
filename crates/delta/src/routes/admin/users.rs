@@ -104,7 +104,7 @@ pub async fn admin_set_badge(
     id: String,
     data: Json<BadgeUpdateData>,
 ) -> Result<Json<serde_json::Value>> {
-    const ALLOWED_BADGES: [i32; 3] = [2048, 4096, 8192];
+    const ALLOWED_BADGES: [i32; 4] = [2048, 4096, 8192, 16384];
     if !ALLOWED_BADGES.contains(&data.badge) {
         return Err(revolt_result::create_error!(InvalidOperation));
     }

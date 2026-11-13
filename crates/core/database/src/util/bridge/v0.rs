@@ -783,6 +783,7 @@ impl From<crate::Server> for Server {
             nsfw: value.nsfw,
             analytics: value.analytics,
             discoverable: value.discoverable,
+            admin_suspended: value.admin_suspended,
         }
     }
 }
@@ -813,7 +814,7 @@ impl From<Server> for crate::Server {
             nsfw: value.nsfw,
             analytics: value.analytics,
             discoverable: value.discoverable,
-            admin_suspended: false,
+            admin_suspended: value.admin_suspended,
         }
     }
 }
@@ -842,6 +843,7 @@ impl From<crate::PartialServer> for PartialServer {
             nsfw: value.nsfw,
             analytics: value.analytics,
             discoverable: value.discoverable,
+            admin_suspended: value.admin_suspended,
         }
     }
 }
@@ -870,7 +872,7 @@ impl From<PartialServer> for crate::PartialServer {
             nsfw: value.nsfw,
             analytics: value.analytics,
             discoverable: value.discoverable,
-            admin_suspended: Some(false),
+            admin_suspended: value.admin_suspended,
         }
     }
 }

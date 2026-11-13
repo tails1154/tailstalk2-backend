@@ -202,6 +202,8 @@ pub async fn message_send(
     )
     .await?;
 
+    crate::util::safety::spawn_check(db.inner().clone(), message.clone(), user.id.clone());
+
     if user.bot.is_none() {
         crate::routes::users::xp::award_message(db, &user.id, xp_server_id.as_deref()).await;
         crate::routes::users::quests::record_message(db, &user.id).await;

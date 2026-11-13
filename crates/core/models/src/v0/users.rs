@@ -201,6 +201,8 @@ auto_derived!(
         CommunityHelper = 4096,
         /// TailsTalk 2 Supporter
         TailsTalkSupporter = 8192,
+        /// TailsTalk 2 Early Supporter
+        EarlySupporter = 16384,
     }
 
     /// User flag enum

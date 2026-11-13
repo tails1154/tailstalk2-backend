@@ -48,7 +48,7 @@ iso8601-timestamp = { workspace = true }
 futures = { workspace = true }
 chrono = { workspace = true }
 async-channel = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "form"] }
 tokio = { workspace = true }
 
 # internal util
@@ -59,6 +59,7 @@ lettre = { workspace = true }
 rocket = { workspace = true, features = ["json"] }
 rocket_cors = { workspace = true }
 rocket_empty = { workspace = true, features = ["schema"] }
+rocket_ws = { workspace = true }
 rocket_prometheus = { workspace = true }
 
 # spec generation

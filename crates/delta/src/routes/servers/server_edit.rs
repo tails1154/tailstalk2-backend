@@ -67,7 +67,6 @@ pub async fn edit(
     } else if data.name.is_some()
         || data.description.is_some()
         || data.announcement.is_some()
-        || data.automod.is_some()
         || data.icon.is_some()
         || data.banner.is_some()
         || data.system_messages.is_some()
@@ -75,6 +74,11 @@ pub async fn edit(
         || !data.remove.is_empty()
     {
         permissions.throw_if_lacking_channel_permission(ChannelPermission::ManageServer)?;
+    }
+
+    // AutoMod has its own permission, so ManageServer alone cannot change it
+    if data.automod.is_some() {
+        permissions.throw_if_lacking_channel_permission(ChannelPermission::ManageAutomod)?;
     }
 
     // Check we are the server owner or privileged if changing sensitive fields

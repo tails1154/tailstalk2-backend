@@ -3,6 +3,7 @@ use rocket::Route;
 
 pub(crate) mod auth;
 mod reports;
+mod safety;
 mod servers;
 mod stats;
 mod profile_decorations;
@@ -10,13 +11,21 @@ mod users;
 mod whatsnew;
 
 pub fn routes() -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![
+    let (mut routes, spec) = openapi_get_routes_spec![
         stats::admin_stats,
         profile_decorations::list,
         profile_decorations::create,
         reports::admin_reports,
         reports::admin_resolve_report,
         reports::admin_dismiss_report,
+        safety::list_flags,
+        safety::review_flag,
+        safety::panel_access,
+        safety::school_account_info,
+        safety::suspend_school_account,
+        safety::unsuspend_school_account,
+        safety::ban_school_account,
+        safety::flag_context,
         servers::admin_servers,
         servers::admin_suspend_server,
         servers::admin_delete_server,
@@ -42,5 +51,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         crate::routes::feature_requests::admin_get,
         crate::routes::feature_requests::approve,
         crate::routes::feature_requests::deny,
-    ]
+    ];
+    routes.extend(safety::oauth_routes());
+    (routes, spec)
 }

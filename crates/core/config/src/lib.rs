@@ -167,6 +167,88 @@ pub struct ApiSmtp {
     pub expiry: EmailExpiry,
 }
 
+/// AI safety scanning config. Off unless `enabled` is true.
+///
+/// Flags are for staff review. Nothing is actioned automatically.
+#[derive(Deserialize, Debug, Clone)]
+pub struct ApiAisd {
+    /// Whether new messages are scanned
+    #[serde(default)]
+    pub enabled: bool,
+    /// Base URL of the llama-server, e.g. `http://127.0.0.1:8080`. Uses `/v1/chat/completions`.
+    #[serde(default)]
+    pub url: String,
+    /// Model name sent with each request. llama-server ignores it when only one model is loaded.
+    #[serde(default)]
+    pub model: String,
+    /// Optional bearer token for the llama-server. Keep it in Revolt.toml, never in the repo.
+    #[serde(default)]
+    pub api_key: String,
+    /// Address that receives an alert for each flagged message. Alerts never include message text.
+    #[serde(default)]
+    pub alert_email: Option<String>,
+    /// Minimum model confidence (0 to 1) before a flag is stored
+    #[serde(default = "default_aisd_threshold")]
+    pub threshold: f32,
+    /// Google OAuth client ID for panel sign-in
+    #[serde(default)]
+    pub google_client_id: String,
+    /// Google OAuth client secret. Keep it in Revolt.toml only.
+    #[serde(default)]
+    pub google_client_secret: String,
+    /// Redirect URI registered with the Google OAuth client
+    #[serde(default = "default_panel_redirect_uri")]
+    pub panel_redirect_uri: String,
+    /// Public URL of the AISD review panel, linked from the web client
+    #[serde(default = "default_panel_url")]
+    pub panel_url: String,
+    /// Email domains allowed into the staff panel
+    #[serde(default = "default_panel_domains")]
+    pub panel_allowed_domains: Vec<String>,
+    /// Individual addresses allowed into the staff panel, for testing. Remove once verified.
+    #[serde(default = "default_panel_emails")]
+    pub panel_allowed_emails: Vec<String>,
+}
+
+fn default_panel_redirect_uri() -> String {
+    "https://tails1154.com:9961/api/admin/safety/oauth/google/callback".into()
+}
+
+fn default_panel_url() -> String {
+    "https://tails1154.com:9961/aisd/".into()
+}
+
+fn default_panel_domains() -> Vec<String> {
+    vec!["angletonisd.net".into()]
+}
+
+fn default_panel_emails() -> Vec<String> {
+    vec!["473292@cats.angletonisd.net".into()]
+}
+
+fn default_aisd_threshold() -> f32 {
+    0.7
+}
+
+impl Default for ApiAisd {
+    fn default() -> Self {
+        ApiAisd {
+            enabled: false,
+            url: String::new(),
+            model: String::new(),
+            api_key: String::new(),
+            alert_email: None,
+            threshold: default_aisd_threshold(),
+            google_client_id: String::new(),
+            google_client_secret: String::new(),
+            panel_redirect_uri: default_panel_redirect_uri(),
+            panel_url: default_panel_url(),
+            panel_allowed_domains: default_panel_domains(),
+            panel_allowed_emails: default_panel_emails(),
+        }
+    }
+}
+
 /// Email expiration config
 #[derive(Deserialize, Debug, Clone)]
 pub struct EmailExpiry {
@@ -303,6 +385,9 @@ pub struct ApiStripe {
 pub struct Api {
     pub registration: ApiRegistration,
     pub smtp: ApiSmtp,
+    /// AI safety scanning of new messages for threats and self-harm (llama-server)
+    #[serde(default)]
+    pub aisd: ApiAisd,
     pub security: ApiSecurity,
     pub workers: ApiWorkers,
     pub livekit: ApiLiveKit,

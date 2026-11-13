@@ -219,7 +219,36 @@ pub async fn restore(
         ..Default::default()
     };
     server.update(db, partial, vec![]).await?;
+    restore_missing_channels(db, &mut server, &backup).await?;
     Ok(Json(backup))
+}
+
+/// Recreates backed-up channels that no longer exist on the server.
+/// Messages and permission overrides are not restored, so a recreated channel starts empty.
+async fn restore_missing_channels(
+    db: &Database,
+    server: &mut revolt_database::Server,
+    backup: &ServerBackup,
+) -> Result<()> {
+    for channel in &backup.channels {
+        if server.channels.contains(&channel.id) {
+            continue;
+        }
+
+        let data = revolt_models::v0::DataCreateServerChannel {
+            channel_type: revolt_models::v0::LegacyServerChannelType::Text,
+            name: channel.name.clone(),
+            description: channel.description.clone(),
+            nsfw: Some(channel.nsfw),
+            forum: channel.forum.clone(),
+            voice: channel.voice.then(|| revolt_models::v0::VoiceInformation {
+                max_users: channel.voice_max_users,
+            }),
+        };
+        revolt_database::Channel::create_server_channel(db, server, data, true).await?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

@@ -455,6 +455,20 @@ impl State {
             return false;
         }*/
 
+        // Message and typing activity stops reaching members once their server is suspended
+        if let Some(channel_id) = event_channel_id(event) {
+            let suspended = self
+                .cache
+                .channels
+                .get(channel_id)
+                .and_then(|channel| channel.server())
+                .and_then(|server_id| self.cache.servers.get(server_id))
+                .is_some_and(|server| server.admin_suspended);
+            if suspended {
+                return false;
+            }
+        }
+
         // An event may trigger recalculation of an entire server's permission.
         // Keep track of whether we need to do anything.
         let mut queue_server = None;
@@ -698,5 +712,21 @@ impl State {
         }
 
         true
+    }
+}
+
+/// Channel a live event belongs to, for events that stop once their server is suspended
+fn event_channel_id(event: &EventV1) -> Option<&str> {
+    match event {
+        EventV1::Message(message) => Some(&message.channel),
+        EventV1::MessageUpdate { channel, .. }
+        | EventV1::MessageAppend { channel, .. }
+        | EventV1::MessageDelete { channel, .. }
+        | EventV1::BulkMessageDelete { channel, .. } => Some(channel),
+        EventV1::MessageReact { channel_id, .. }
+        | EventV1::MessageUnreact { channel_id, .. }
+        | EventV1::MessageRemoveReaction { channel_id, .. } => Some(channel_id),
+        EventV1::ChannelStartTyping { id, .. } | EventV1::ChannelStopTyping { id, .. } => Some(id),
+        _ => None,
     }
 }
