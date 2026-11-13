@@ -90,8 +90,11 @@ fn verify_backup(key: &SigningKey, backup: &ServerBackup) -> Result<()> {
         .map_err(|_| create_error!(InvalidProperty))
 }
 
-fn validate_backup(backup: &ServerBackup, server_id: &str) -> Result<()> {
-    if backup.version != 1 || backup.server_id != server_id || backup.name.trim().is_empty() {
+/// Backups are templates: `server_id` records where the backup came from and is
+/// not required to match the server being restored into. The signature covers it,
+/// so it cannot be changed without invalidating the backup.
+fn validate_backup(backup: &ServerBackup) -> Result<()> {
+    if backup.version != 1 || backup.name.trim().is_empty() {
         return Err(create_error!(InvalidProperty));
     }
     Ok(())
@@ -108,7 +111,7 @@ pub async fn export(
     let mut query = DatabasePermissionQuery::new(db, &user).server(&server);
     calculate_server_permissions(&mut query)
         .await
-        .throw_if_lacking_channel_permission(ChannelPermission::ManageServer)?;
+        .throw_if_lacking_channel_permission(ChannelPermission::BackupServer)?;
     let key = backup_signing_key().await?;
     let mut backup = ServerBackup {
         version: 1,
@@ -136,9 +139,9 @@ pub async fn restore(
     let mut query = DatabasePermissionQuery::new(db, &user).server(&server);
     calculate_server_permissions(&mut query)
         .await
-        .throw_if_lacking_channel_permission(ChannelPermission::ManageServer)?;
+        .throw_if_lacking_channel_permission(ChannelPermission::RestoreServer)?;
     let backup = data.into_inner();
-    validate_backup(&backup, &server.id)?;
+    validate_backup(&backup)?;
     verify_backup(&backup_signing_key().await?, &backup)?;
     let partial = PartialServer {
         name: Some(backup.name.clone()),
@@ -160,7 +163,7 @@ mod tests {
     use rocket::http::{ContentType, Header, Status};
 
     #[test]
-    fn rejects_wrong_version_server_and_empty_name() {
+    fn rejects_wrong_version_and_empty_name_but_accepts_any_server() {
         let backup = ServerBackup {
             version: 2,
             server_id: "server".into(),
@@ -171,16 +174,15 @@ mod tests {
             default_permissions: 0,
             signature: None,
         };
-        assert!(validate_backup(&backup, "server").is_err());
+        assert!(validate_backup(&backup).is_err());
 
         let mut backup = backup;
         backup.version = 1;
         backup.server_id = "other".into();
-        assert!(validate_backup(&backup, "server").is_err());
+        assert!(validate_backup(&backup).is_ok());
 
-        backup.server_id = "server".into();
         backup.name = "   ".into();
-        assert!(validate_backup(&backup, "server").is_err());
+        assert!(validate_backup(&backup).is_err());
     }
 
     fn test_key() -> SigningKey {

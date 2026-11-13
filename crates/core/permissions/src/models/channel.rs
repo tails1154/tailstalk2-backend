@@ -77,6 +77,10 @@ pub enum ChannelPermission {
     React = 1 << 29,
     /// Bypass slowmode
     BypassSlowmode = 1 << 39,
+    /// Export backups of the server
+    BackupServer = 1 << 40,
+    /// Restore backups into the server
+    RestoreServer = 1 << 41,
 
     // * Voice permissions
     /// Connect to a voice channel

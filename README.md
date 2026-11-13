@@ -1,227 +1,103 @@
-# This is tails1154's modified backend of stoat. It is recommended to use the original stoat backend. This is just so i'm not stealing others software (if you do that you are a terrible person). If i edit any more stoat services, i'l make repositories with their code too.
+# TailsTalk 2 Backend
 
+The backend for TailsTalk 2, a modified fork of the [Stoat](https://github.com/stoatchat/stoatchat) backend (originally Revolt). It is run as a single instance at `https://tails1154.com`.
 
+Changes from upstream Stoat include:
 
+- **AutoMod:** per-server rules that block or moderate messages, enforced on message send and edit.
+- **AISD student IDs:** accounts on `cats.angletonisd.net` must use a student ID that starts with 4 and has six digits.
+- **Marketing list sync:** users who do not opt out at signup are added to a Brevo contact list. AISD addresses go to a separate list.
+- **Email verification:** verification mail is sent through Brevo SMTP, and admins can verify an address manually.
+- **Suspensions:** suspended and banned accounts are rejected on every request, and suspensions end automatically at their expiry time.
+- **Signed server backups:** server exports are signed with Ed25519, and restores reject any file whose signature does not verify.
+- **Backup permissions:** `BackupServer` and `RestoreServer` control who can export and restore backups.
+- **GitHub webhooks:** `/webhooks/<id>/<token>/github` accepts GitHub events, and `ping` is acknowledged.
+- **Admin panel API:** user search (by username, ID, or email), warnings, suspensions, bans, badges, reports, and a pending-verification list.
 
+## Crates
 
+| Crate | Path | Description |
+| --- | --- | --- |
+| `core/config` | [crates/core/config](crates/core/config) | Configuration loading |
+| `core/database` | [crates/core/database](crates/core/database) | Database models and MongoDB implementation |
+| `core/models` | [crates/core/models](crates/core/models) | API request and response models |
+| `core/permissions` | [crates/core/permissions](crates/core/permissions) | Permission bits and calculation |
+| `core/result` | [crates/core/result](crates/core/result) | Error types |
+| `delta` | [crates/delta](crates/delta) | REST API server |
+| `bonfire` | [crates/bonfire](crates/bonfire) | WebSocket events server |
+| `services/january` | [crates/services/january](crates/services/january) | Proxy |
+| `services/gifbox` | [crates/services/gifbox](crates/services/gifbox) | GIF proxy |
+| `services/autumn` | [crates/services/autumn](crates/services/autumn) | File server |
+| `daemons/crond` | [crates/daemons/crond](crates/daemons/crond) | Scheduled clean-up |
+| `daemons/pushd` | [crates/daemons/pushd](crates/daemons/pushd) | Push notifications |
 
+## Requirements
 
-<div align="center">
-<h1>
-  Stoat Backend
-  
-  [![Stars](https://img.shields.io/github/stars/stoatchat/stoatchat?style=flat-square&logoColor=white)](https://github.com/stoatchat/stoatchat/stargazers)
-  [![Forks](https://img.shields.io/github/forks/stoatchat/stoatchat?style=flat-square&logoColor=white)](https://github.com/stoatchat/stoatchat/network/members)
-  [![Pull Requests](https://img.shields.io/github/issues-pr/stoatchat/stoatchat?style=flat-square&logoColor=white)](https://github.com/stoatchat/stoatchat/pulls)
-  [![Issues](https://img.shields.io/github/issues/stoatchat/stoatchat?style=flat-square&logoColor=white)](https://github.com/stoatchat/stoatchat/issues)
-  [![Contributors](https://img.shields.io/github/contributors/stoatchat/stoatchat?style=flat-square&logoColor=white)](https://github.com/stoatchat/stoatchat/graphs/contributors)
-  [![License](https://img.shields.io/github/license/stoatchat/stoatchat?style=flat-square&logoColor=white)](https://github.com/stoatchat/stoatchat/blob/main/LICENSE)
-</h1>
-The services and libraries that power the Stoat service.<br/>
-<br/>
+- Rust 1.92 (the toolchain this project builds with)
+- MongoDB running as a replica set. Account and user updates use transactions, so a standalone server will fail some requests.
+- Redis, RabbitMQ, and an S3-compatible store for files, as in upstream Stoat
 
-| Crate              | Path                                               | Description                         |                                                                                                                                                                                                                                                                                                           |
-| ------------------ | -------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `core/config`      | [crates/core/config](crates/core/config)           | Core: Configuration                 | ![Crates.io Version](https://img.shields.io/crates/v/revolt-config) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-config) ![Crates.io Version](https://img.shields.io/crates/size/revolt-config) ![Crates.io License](https://img.shields.io/crates/l/revolt-config)                     |
-| `core/database`    | [crates/core/database](crates/core/database)       | Core: Database Implementation       | ![Crates.io Version](https://img.shields.io/crates/v/revolt-database) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-database) ![Crates.io Version](https://img.shields.io/crates/size/revolt-database) ![Crates.io License](https://img.shields.io/crates/l/revolt-database)             |
-| `core/files`       | [crates/core/files](crates/core/files)             | Core: S3 and encryption subroutines | ![Crates.io Version](https://img.shields.io/crates/v/revolt-files) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-files) ![Crates.io Version](https://img.shields.io/crates/size/revolt-files) ![Crates.io License](https://img.shields.io/crates/l/revolt-files)                         |
-| `core/models`      | [crates/core/models](crates/core/models)           | Core: API Models                    | ![Crates.io Version](https://img.shields.io/crates/v/revolt-models) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-models) ![Crates.io Version](https://img.shields.io/crates/size/revolt-models) ![Crates.io License](https://img.shields.io/crates/l/revolt-models)                     |
-| `core/permissions` | [crates/core/permissions](crates/core/permissions) | Core: Permission Logic              | ![Crates.io Version](https://img.shields.io/crates/v/revolt-permissions) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-permissions) ![Crates.io Version](https://img.shields.io/crates/size/revolt-permissions) ![Crates.io License](https://img.shields.io/crates/l/revolt-permissions) |
-| `core/presence`    | [crates/core/presence](crates/core/presence)       | Core: User Presence                 | ![Crates.io Version](https://img.shields.io/crates/v/revolt-presence) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-presence) ![Crates.io Version](https://img.shields.io/crates/size/revolt-presence) ![Crates.io License](https://img.shields.io/crates/l/revolt-presence)             |
-| `core/result`      | [crates/core/result](crates/core/result)           | Core: Result and Error types        | ![Crates.io Version](https://img.shields.io/crates/v/revolt-result) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-result) ![Crates.io Version](https://img.shields.io/crates/size/revolt-result) ![Crates.io License](https://img.shields.io/crates/l/revolt-result)                     |
-| `core/coalesced`   | [crates/core/coalesced](crates/core/coalesced)     | Core: Coalescion service            | ![Crates.io Version](https://img.shields.io/crates/v/revolt-coalesced) ![Crates.io Version](https://img.shields.io/crates/msrv/revolt-coalesced) ![Crates.io Version](https://img.shields.io/crates/size/revolt-coalesced) ![Crates.io License](https://img.shields.io/crates/l/revolt-coalesced)         |
-| `delta`            | [crates/delta](crates/delta)                       | REST API server                     | ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)                                                                                                                                                                                                                                |
-| `bonfire`          | [crates/bonfire](crates/bonfire)                   | WebSocket events server             | ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)                                                                                                                                                                                                                                |
-| `services/january` | [crates/services/january](crates/services/january) | Proxy server                        | ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)                                                                                                                                                                                                                                |
-| `services/gifbox`  | [crates/services/gifbox](crates/services/gifbox)   | Tenor proxy server                  | ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)                                                                                                                                                                                                                                |
-| `services/autumn`  | [crates/services/autumn](crates/services/autumn)   | File server                         | ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)                                                                                                                                                                                                                                |
-| `daemons/crond`    | [crates/daemons/crond](crates/daemons/crond)       | Timed data clean up daemon server   | ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)                                                                                                                                                                                                                                |
-| `daemons/pushd`    | [crates/daemons/pushd](crates/daemons/pushd)       | Push notification daemon server     | ![License](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)                                                                                                                                                                                                                                |
+## Configuration
 
-</div>
-<br/>
+Settings live in `Revolt.toml`. Local overrides go in `Revolt.overrides.toml`. Never commit real credentials.
 
-## Minimum Supported Rust Version
+The sections this fork relies on:
 
-Rust 1.86.0 or higher.
+```toml
+[api.registration]
+invite_only = false
+email_verification = true   # reported to clients as `features.email`
 
-## Development Guide
+[api.smtp]
+host = "smtp-relay.brevo.com"
+port = 587
+use_starttls = true
+use_tls = false
+username = "<brevo smtp login>"
+password = "<brevo smtp key>"
+from_address = "verify@tails1154.com"
+reply_to = "support@tails1154.com"
 
-Before contributing, make yourself familiar with [our contribution guidelines](https://developers.stoat.chat/developing/contrib/) and the [technical documentation for this project](https://developers.stoat.chat/).
+[api.marketing]
+brevo_api_key = "<brevo api key>"
+brevo_list_id = 5           # all other signups
+brevo_aisd_list_id = 6      # cats.angletonisd.net addresses; 0 uses brevo_list_id
 
-Before getting started, you'll want to install:
-
-- mise
-- Docker
-- Git
-- mold (optional, faster compilation)
-
-> A **default.nix** is available for Nix users!
-> Run `nix-shell` to activate mise.
-
-As a heads-up, the development environment uses the following ports:
-
-| Service                   |      Port      |
-| ------------------------- | :------------: |
-| MongoDB                   |     27017      |
-| Redis                     |      6379      |
-| MinIO                     |     14009      |
-| Maildev                   | 14025<br>14080 |
-| Revolt Web App            |     14701      |
-| RabbitMQ                  | 5672<br>15672  |
-| `crates/delta`            |     14702      |
-| `crates/bonfire`          |     14703      |
-| `crates/services/autumn`  |     14704      |
-| `crates/services/january` |     14705      |
-| `crates/services/gifbox`  |     14706      |
-
-Now you can clone and build the project:
-
-```bash
-git clone https://github.com/stoatchat/stoatchat stoat-backend
-cd stoat-backend
-mise install
-mise build
+[api.backup]
+signing_key = "<base64 32-byte Ed25519 seed>"   # empty disables backup export and restore
 ```
 
-> [!TIP]
-> You can override `BUILDER` in your `.env` file to run cargo with mold if you installed it:
->
-> ```bash
-> # .env
-> BUILDER = "mold --run cargo"
-> ```
+Generate the backup key with `head -c 32 /dev/urandom | base64 -w0`. Changing it invalidates every backup signed with the old key.
 
-A default configuration `Revolt.toml` is present in this project that is suited for development.
+Leaving `[api.marketing].brevo_api_key` empty turns marketing sync off. Leaving `[api.smtp].host` empty turns off email verification.
 
-If you'd like to change anything, create a `Revolt.overrides.toml` file and specify relevant variables.
+## Server backups
 
-> [!TIP]
-> Use Sentry to catch unexpected service errors:
->
-> ```toml
-> # Revolt.overrides.toml
-> [sentry]
-> api = "https://abc@your.sentry/1"
-> events = "https://abc@your.sentry/1"
-> files = "https://abc@your.sentry/1"
-> proxy = "https://abc@your.sentry/1"
-> ```
+`GET /servers/<id>/backup` exports the server's name, description, roles, categories, and default permissions as JSON, signed with the instance key. `POST /servers/<id>/backup` restores such a file.
 
-> [!TIP]
-> If you have port conflicts on common services, you can try the following:
->
-> ```yaml
-> # compose.override.yml
-> services:
->   redis:
->     ports: !override
->       - "14079:6379"
->
->   database:
->     ports: !override
->       - "14017:27017"
->
->   rabbit:
->     ports: !override
->       - "14072:5672"
->       - "14672:15672"
-> ```
->
-> With the corresponding Revolt configuration:
->
-> ```toml
-> #     Revolt.overrides.toml
-> # and Revolt.test-overrides.toml
-> [database]
-> mongodb = "mongodb://127.0.0.1:14017"
-> redis = "redis://127.0.0.1:14079/"
->
-> [rabbit]
-> port = 14072
-> ```
->
-> And mise configuration
->
-> ```bash
-> #.env
-> DATABASE_PORT = "14017"
-> RABBIT_PORT = "14072"
-> REDIS_PORT = "14079"
-> ```
+- Export requires `BackupServer` in the server.
+- Restore requires `RestoreServer` in the server.
+- Backups do not need to come from the server they are restored into, so they can be used as templates.
+- Restore replaces the server's roles with the ones in the file. Channels are not included in backups yet.
 
-Then continue:
+## Development
 
-```bash
-cp livekit.example.yml livekit.yml
+Upstream Stoat's development setup (mise, Docker services, and the `local` port layout) still applies. See the [Stoat developer docs](https://developers.stoat.chat/developing/contrib/).
 
-mise start
-```
-
-You can start a web client by doing the following in another terminal:
-
-```bash
-# if you do not have yarn yet and have a modern Node.js:
-corepack enable
-
-# clone the web client and run it:
-git clone --recursive https://github.com/stoatchat/for-web stoat-web
-cd stoat-web
-# refer to stoat-web/README.md for startup, creating an account and loging in
-```
-
-When signing up, go to http://localhost:14080 to find confirmation/password reset emails.
-
-To stop all services, hit (CTRL + c) in the terminal you ran `mise start` and run `mise docker:stop`
-
-
-## Deployment Guide
-
-### Cutting new crate releases
-
-Begin by bumping crate versions:
-
-```bash
-just patch # 0.0.X
-just minor # 0.X.0
-just major # X.0.0
-```
-
-Then commit the changes to package files.
-
-Proceed to publish all the new crates:
-
-```bash
-just publish
-```
-
-### Cutting new binary releases
-
-Tag and push a new release by running:
-
-```bash
-just release
-```
-
-If you have bumped the crate versions, proceed to [GitHub releases](https://github.com/stoatchat/stoatchat/releases/new) to create a changelog.
-
-## Testing
-
-First, start the required services:
+Run the test suite with:
 
 ```sh
-docker compose up -d
+cargo test
 ```
 
-Now run tests for whichever database:
+Some database tests need a running MongoDB and are marked `#[ignore]`. Run them with `cargo test -- --ignored` once MongoDB is available.
 
-```sh
-TEST_DB=REFERENCE cargo nextest run
-TEST_DB=MONGODB cargo nextest run
-```
+## Deployment
+
+Production deployment is done by `./deploy.sh`. It builds the release API and events binaries, builds the container images, and restarts the services on the server over SSH. Use the script rather than running the steps by hand.
+
+The `deploy/` directory holds Dockerfiles and the binaries copied in during a build. The binaries are ignored by git.
 
 ## License
 
-The Stoat backend is generally licensed under the [GNU Affero General Public License v3.0](https://github.com/stoatchat/stoatchat/blob/main/LICENSE).
-
-**Individual crates may supply their own licenses!**
+The backend is licensed under the [GNU Affero General Public License v3.0 or later](LICENSE). Individual crates may carry their own licenses.

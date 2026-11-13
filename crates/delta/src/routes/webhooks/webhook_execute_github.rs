@@ -771,6 +771,11 @@ pub async fn webhook_execute_github(
     let webhook = webhook_id.as_webhook(db).await?;
     webhook.assert_token(token)?;
 
+    // GitHub sends a ping when a webhook is created; acknowledge it without posting
+    if &*event == "ping" {
+        return Ok(());
+    }
+
     let channel = db.fetch_channel(&webhook.channel_id).await?;
     let event = convert_event(&data, &event)?;
 
