@@ -183,8 +183,25 @@ pub async fn admin_search_users(
 ) -> Result<Json<Vec<AdminUserInfo>>> {
     let users = match db.inner() {
         Database::MongoDb(mongo) => {
+            use futures::StreamExt;
             let filter = if q.len() == 26 {
                 doc! { "_id": &q }
+            } else if q.contains('@') {
+                // Email addresses live on the account, so find matching accounts first
+                let pattern = regex::escape(&q);
+                let mut ids: Vec<String> = Vec::new();
+                let mut accounts = mongo
+                    .col::<bson::Document>("accounts")
+                    .find(doc! { "email": { "$regex": pattern, "$options": "i" } })
+                    .limit(20)
+                    .await
+                    .map_err(|_| revolt_result::create_error!(InternalError))?;
+                while let Some(Ok(account)) = accounts.next().await {
+                    if let Ok(id) = account.get_str("_id") {
+                        ids.push(id.to_string());
+                    }
+                }
+                doc! { "_id": { "$in": ids } }
             } else {
                 doc! {
                     "username": { "$regex": &q as &str, "$options": "i" }
@@ -198,7 +215,6 @@ pub async fn admin_search_users(
                 .map_err(|_| revolt_result::create_error!(InternalError))?;
 
             let mut result = Vec::new();
-            use futures::StreamExt;
             while let Some(Ok(doc)) = cursor.next().await {
                 if let Some(user) = user_from_doc(&doc) {
                     result.push(user);
@@ -391,6 +407,65 @@ pub async fn admin_suspend_user(
     }
 
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(Serialize, JsonSchema, Debug)]
+pub struct PendingVerificationUser {
+    pub id: String,
+    pub email: String,
+    pub username: Option<String>,
+}
+
+/// # Pending Verification
+///
+/// List accounts whose email address has not been verified yet.
+#[openapi(tag = "Admin")]
+#[get("/users/pending-verification")]
+pub async fn admin_pending_verification(
+    _admin: AdminUser,
+    db: &State<Database>,
+) -> Result<Json<Vec<PendingVerificationUser>>> {
+    let Database::MongoDb(mongo) = db.inner() else {
+        return Ok(Json(Vec::new()));
+    };
+
+    use futures::StreamExt;
+    let mut accounts = Vec::new();
+    let mut cursor = mongo
+        .col::<bson::Document>("accounts")
+        .find(doc! { "verification.status": "Pending" })
+        .limit(100)
+        .await
+        .map_err(|_| revolt_result::create_error!(InternalError))?;
+    while let Some(Ok(account)) = cursor.next().await {
+        if let (Ok(id), Ok(email)) = (account.get_str("_id"), account.get_str("email")) {
+            accounts.push((id.to_string(), email.to_string()));
+        }
+    }
+
+    let ids: Vec<String> = accounts.iter().map(|(id, _)| id.clone()).collect();
+    let mut usernames = std::collections::HashMap::new();
+    let mut users = mongo
+        .col::<bson::Document>("users")
+        .find(doc! { "_id": { "$in": ids } })
+        .await
+        .map_err(|_| revolt_result::create_error!(InternalError))?;
+    while let Some(Ok(user)) = users.next().await {
+        if let (Ok(id), Ok(name)) = (user.get_str("_id"), user.get_str("username")) {
+            usernames.insert(id.to_string(), name.to_string());
+        }
+    }
+
+    Ok(Json(
+        accounts
+            .into_iter()
+            .map(|(id, email)| PendingVerificationUser {
+                username: usernames.get(&id).cloned(),
+                id,
+                email,
+            })
+            .collect(),
+    ))
 }
 
 /// # Verify Email
