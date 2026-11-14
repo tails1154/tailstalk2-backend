@@ -14,6 +14,8 @@ pub struct UserWarnings {
 pub struct WarningItem {
     pub reason: String,
     pub created_at: String,
+    /// "warning" for staff warnings, "crisis" for a crisis support notice
+    pub kind: String,
 }
 
 /// # Get My Warnings
@@ -48,6 +50,7 @@ pub async fn get_warnings(
                                 Some(WarningItem {
                                     reason: d.get_str("reason").ok()?.to_string(),
                                     created_at,
+                                    kind: d.get_str("kind").unwrap_or("warning").to_string(),
                                 })
                             })
                             .collect()

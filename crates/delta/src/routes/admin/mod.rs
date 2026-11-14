@@ -28,6 +28,7 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         safety::flag_context,
         safety::reopen_flag,
         safety::warn_school_account,
+        safety::crisis_notice_school_account,
         servers::admin_servers,
         servers::admin_suspend_server,
         servers::admin_delete_server,

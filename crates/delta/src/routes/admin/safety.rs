@@ -523,6 +523,53 @@ pub async fn warn_school_account(
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
+/// Fixed text for a crisis notice. The web client shows its own translated version, this is the fallback.
+const CRISIS_NOTICE: &str = "You are not alone. If you are thinking about hurting yourself, you can call or text 988 (US) at any time to talk to someone. If you are in danger right now, call your local emergency number.";
+
+#[derive(Deserialize, JsonSchema, Debug)]
+pub struct PanelCrisisData {
+    /// The flag the notice was sent from, if any
+    pub message_id: Option<String>,
+    /// Staff-only note. Never shown to the user.
+    pub note: Option<String>,
+}
+
+/// # Send Crisis Notice
+///
+/// Staff action from the panel. Shows the user a crisis support notice the next time their client checks.
+/// The notice text is fixed on the server. Any note is kept for staff and never sent to the user.
+#[openapi(tag = "Admin")]
+#[post("/safety/users/<id>/crisis-notice", data = "<data>")]
+pub async fn crisis_notice_school_account(
+    panel: PanelUser,
+    db: &State<Database>,
+    id: String,
+    data: Json<PanelCrisisData>,
+) -> Result<Json<serde_json::Value>> {
+    school_account(db, &id).await?;
+    let note = data.note.as_deref().unwrap_or_default().trim().to_string();
+    if note.len() > 500 {
+        return Err(create_error!(InvalidOperation));
+    }
+    if let Database::MongoDb(mongo) = db.inner() {
+        let notice = bson::to_bson(&doc! {
+            "kind": "crisis",
+            "reason": CRISIS_NOTICE,
+            "staff_note": &note,
+            "created_at": chrono::Utc::now().to_rfc3339(),
+        })
+        .unwrap_or_default();
+        mongo
+            .col::<bson::Document>("users")
+            .update_one(doc! { "_id": &id }, doc! { "$push": { "admin_warnings": notice } })
+            .await
+            .map_err(|_| create_error!(InternalError))?;
+    }
+    record_action(db, data.message_id.as_deref(), &id, "crisis notice sent", &panel.email, &note).await;
+    audit(db, &panel.email, "crisis_notice", &id, &note).await;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
 /// # Reopen Safety Flag
 ///
 /// Marks a resolved flag as open again so it returns to the queue.
