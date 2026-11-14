@@ -4,8 +4,9 @@
 //! is skipped before any AI call. Flags go to the staff review queue. The scanner never warns,
 //! suspends, or bans anyone itself, and nothing is emailed.
 
+use std::io::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use revolt_config::{config, ApiAisd};
 use revolt_database::mongodb::bson::{self, doc};
@@ -247,9 +248,30 @@ const SELF_HARM_PHRASES: &[&str] = &[
     "suicide",
 ];
 
-fn self_harm_phrase(content: &str) -> Option<&'static str> {
+/// Phrases that mean a threat of serious violence on their own. Matching is case-insensitive.
+/// Kept to explicit intent, so discussing a topic such as history does not match.
+const VIOLENCE_PHRASES: &[&str] = &[
+    "commit genocide",
+    "commit a genocide",
+    "shoot up the school",
+    "bomb the school",
+    "gonna kill you",
+    "going to kill you",
+    "i will kill you",
+    "i'll kill you",
+];
+
+/// The kind and phrase of the first rule that matches, if any. Crisis phrases are checked first.
+fn rule_match(content: &str) -> Option<(&'static str, &'static str)> {
     let lower = content.to_lowercase();
-    SELF_HARM_PHRASES.iter().copied().find(|phrase| lower.contains(phrase))
+    if let Some(phrase) = SELF_HARM_PHRASES.iter().copied().find(|phrase| lower.contains(phrase)) {
+        return Some(("self_harm", phrase));
+    }
+    VIOLENCE_PHRASES
+        .iter()
+        .copied()
+        .find(|phrase| lower.contains(phrase))
+        .map(|phrase| ("threat", phrase))
 }
 
 /// Runs the review in the background so sending a message is never delayed or blocked by it
@@ -282,18 +304,18 @@ async fn check(db: &Database, message: &Message, author_id: &str) -> Result<(), 
         return Ok(());
     };
 
-    // Explicit self-harm phrases are flagged directly, so a model miss can't hide a crisis
-    if let Some(phrase) = self_harm_phrase(content) {
-        store_flag(
-            db,
+    // Explicit crisis and violence phrases are flagged directly, so a model miss can't hide them
+    if let Some((kind, phrase)) = rule_match(content) {
+        let reason = format!("Matched a {kind} phrase (\"{phrase}\") by rule, not by the model.");
+        log_decision(
             message,
             author_id,
-            "self_harm",
-            1.0,
-            &format!("Matched a self-harm phrase (\"{phrase}\") by rule, not by the model."),
+            "rule",
+            content,
+            json!({ "flagged": true, "kind": kind, "confidence": 1.0, "reason": reason }),
             "",
-        )
-        .await;
+        );
+        store_flag(db, message, author_id, kind, 1.0, &reason, "").await;
         return Ok(());
     }
 
@@ -308,6 +330,14 @@ async fn check(db: &Database, message: &Message, author_id: &str) -> Result<(), 
         Ok(result) => result,
         Err(err) => {
             // Staff get a flag, so a message is never skipped silently
+            log_decision(
+                message,
+                author_id,
+                "error",
+                &judged,
+                json!({ "flagged": true, "kind": "review failed", "error": err }),
+                "",
+            );
             store_flag(
                 db,
                 message,
@@ -332,17 +362,70 @@ async fn check(db: &Database, message: &Message, author_id: &str) -> Result<(), 
     if verdict.harassment {
         kinds.push("harassment");
     }
-    if kinds.is_empty() {
-        return Ok(());
-    }
     let kind = kinds.join(", ");
-    if verdict.confidence < settings.threshold {
+    let flagged = !kinds.is_empty() && verdict.confidence >= settings.threshold;
+    log_decision(
+        message,
+        author_id,
+        "model",
+        &judged,
+        json!({
+            "flagged": flagged,
+            "kind": kind,
+            "self_harm": verdict.self_harm,
+            "threat": verdict.threat,
+            "harassment": verdict.harassment,
+            "confidence": verdict.confidence,
+            "reason": verdict.reason,
+        }),
+        &reasoning,
+    );
+    if !flagged {
         return Ok(());
     }
 
     // Flags are shown as notifications in the AISD panel. Nothing is emailed.
     store_flag(db, message, author_id, &kind, verdict.confidence, &verdict.reason, &reasoning).await;
     Ok(())
+}
+
+/// Where every classifier decision is written, one JSON object per line. Override with AISD_DECISION_LOG.
+fn decision_log_path() -> String {
+    std::env::var("AISD_DECISION_LOG").unwrap_or_else(|_| "/logs/aisd-decisions.jsonl".to_string())
+}
+
+/// Appends one decision to the decision log. The file holds the judged message text, so keep it private.
+/// A write failure is logged and never stops the review.
+fn log_decision(
+    message: &Message,
+    author_id: &str,
+    source: &str,
+    judged: &str,
+    outcome: serde_json::Value,
+    reasoning: &str,
+) {
+    static WRITE: Mutex<()> = Mutex::new(());
+    let line = json!({
+        "ts": iso8601_timestamp::Timestamp::now_utc().to_string(),
+        "message_id": message.id,
+        "channel_id": message.channel,
+        "author_id": author_id,
+        "source": source,
+        "outcome": outcome,
+        "reasoning": reasoning.chars().take(8000).collect::<String>(),
+        "judged": judged,
+    })
+    .to_string();
+    // One line per write, so concurrent reviews never interleave
+    let _guard = WRITE.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let written = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(decision_log_path())
+        .and_then(|mut file| writeln!(file, "{line}"));
+    if let Err(err) = written {
+        log::error!("Failed to write the safety decision log for message {}: {err}", message.id);
+    }
 }
 
 async fn store_flag(
