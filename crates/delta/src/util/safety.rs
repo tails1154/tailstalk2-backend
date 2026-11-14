@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use revolt_config::{config, ApiAisd};
 use revolt_database::mongodb::bson::{self, doc};
+use futures::StreamExt;
 use revolt_database::{Database, EmailVerification, Message};
 use serde::Deserialize;
 use serde_json::json;
@@ -19,7 +20,15 @@ const SCHOOL_DOMAIN: &str = "@cats.angletonisd.net";
 const SYSTEM_PROMPT: &str = "You review chat messages for a school platform. Decide whether the message \
 expresses a real intention to harm oneself (self_harm) or a real threat of violence against another person (threat). \
 Quoted text, fiction, jokes, song lyrics, or discussion of a topic without intent do not count. \
-Reply with only a JSON object: {\"self_harm\": true or false, \"threat\": true or false, \"confidence\": a number from 0 to 1}.";
+Earlier messages from the channel are given for context only. Judge only the message marked as the message to judge, \
+and use the earlier messages to work out what words like \"it\", \"this\" or \"do it\" refer to. \
+Sarcasm and exaggeration are not intent, and a joke marker means it is not a real threat: words like \"trust\", \"lol\", \"jk\", \"/s\" or \"haha\" at the end usually mean sarcasm. \
+For example \"im gonna execute you trust\" is sarcasm about a company or a product, not a threat, so do not flag it. \
+A message that continues a plan stated earlier counts as intent. \
+Short strings are often not self-harm. \"sh\" alone means nothing: it can be shh, a typo for ssh, or the shell sh. \
+Only flag \"sh\" when the message says the sender plans to self-harm, for example \"gonna do sh\" or \"gonna do sh to myself\". \
+A stated plan still counts if the sender adds that it is a test or that they are not really considering it: flag it and let staff decide. \
+Reply with only a JSON object: {\"self_harm\": true or false, \"threat\": true or false, \"confidence\": a number from 0 to 1, \"reason\": one short sentence saying why, quoting the key words}.";
 
 #[derive(Debug, Deserialize)]
 struct Verdict {
@@ -29,6 +38,9 @@ struct Verdict {
     threat: bool,
     #[serde(default)]
     confidence: f32,
+    /// One sentence from the model saying why it decided this
+    #[serde(default)]
+    reason: String,
 }
 
 fn http() -> &'static reqwest::Client {
@@ -82,7 +94,8 @@ fn parse_verdict(text: &str) -> Result<Verdict, String> {
     serde_json::from_str(&text[start..=end]).map_err(|e| e.to_string())
 }
 
-async fn classify(aisd: &ApiAisd, content: &str) -> Result<Verdict, String> {
+/// Returns the verdict and the model's own reasoning trace, when llama-server includes one
+async fn classify(aisd: &ApiAisd, content: &str) -> Result<(Verdict, String), String> {
     let url = format!("{}/v1/chat/completions", aisd.url.trim_end_matches('/'));
     let body = json!({
         "model": aisd.model,
@@ -111,7 +124,43 @@ async fn classify(aisd: &ApiAisd, content: &str) -> Result<Verdict, String> {
     let text = response["choices"][0]["message"]["content"]
         .as_str()
         .ok_or("reply has no message content")?;
-    parse_verdict(text)
+    let reasoning = response["choices"][0]["message"]["reasoning_content"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    Ok((parse_verdict(text)?, reasoning))
+}
+
+/// The last few messages in the channel before this one, oldest first, so the model can read what "it" refers to
+async fn earlier_messages(db: &Database, message: &Message, author_id: &str) -> String {
+    let Database::MongoDb(mongo) = db else {
+        return String::new();
+    };
+    let Ok(mut cursor) = mongo
+        .col::<bson::Document>("messages")
+        .find(doc! { "channel": &message.channel, "_id": { "$lt": &message.id } })
+        .sort(doc! { "_id": -1 })
+        .limit(5)
+        .await
+    else {
+        return String::new();
+    };
+    let mut lines = Vec::new();
+    while let Some(Ok(d)) = cursor.next().await {
+        let content = d.get_str("content").unwrap_or_default();
+        if content.trim().is_empty() {
+            continue;
+        }
+        let who = if d.get_str("author").unwrap_or_default() == author_id {
+            "sender"
+        } else {
+            "other person"
+        };
+        let text: String = content.chars().take(300).collect();
+        lines.push(format!("{who}: {text}"));
+    }
+    lines.reverse();
+    lines.join("\n")
 }
 
 /// Runs the review in the background so sending a message is never delayed or blocked by it
@@ -139,7 +188,13 @@ async fn check(db: &Database, message: &Message, author_id: &str) -> Result<(), 
     };
 
     let _permit = limit().acquire().await.map_err(|e| e.to_string())?;
-    let verdict = classify(&settings, content).await?;
+    let earlier = earlier_messages(db, message, author_id).await;
+    let judged = if earlier.is_empty() {
+        content.to_string()
+    } else {
+        format!("Earlier messages in this channel:\n{earlier}\n\nMessage to judge (from the sender):\n{content}")
+    };
+    let (verdict, reasoning) = classify(&settings, &judged).await?;
 
     let kind = match (verdict.self_harm, verdict.threat) {
         (true, true) => "self_harm, threat",
@@ -152,11 +207,19 @@ async fn check(db: &Database, message: &Message, author_id: &str) -> Result<(), 
     }
 
     // Flags are shown as notifications in the AISD panel. Nothing is emailed.
-    store_flag(db, message, author_id, kind, verdict.confidence).await;
+    store_flag(db, message, author_id, kind, verdict.confidence, &verdict.reason, &reasoning).await;
     Ok(())
 }
 
-async fn store_flag(db: &Database, message: &Message, author_id: &str, kind: &str, confidence: f32) {
+async fn store_flag(
+    db: &Database,
+    message: &Message,
+    author_id: &str,
+    kind: &str,
+    confidence: f32,
+    reason: &str,
+    reasoning: &str,
+) {
     let Database::MongoDb(mongo) = db else {
         return;
     };
@@ -165,6 +228,9 @@ async fn store_flag(db: &Database, message: &Message, author_id: &str, kind: &st
         .insert_one(doc! {
             "kind": kind,
             "confidence": confidence as f64,
+            "reason": reason,
+            "reasoning": reasoning.chars().take(8000).collect::<String>(),
+            "actions": Vec::<bson::Bson>::new(),
             "message_id": &message.id,
             "channel_id": &message.channel,
             "author_id": author_id,

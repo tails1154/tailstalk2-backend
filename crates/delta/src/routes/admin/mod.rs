@@ -26,6 +26,8 @@ pub fn routes() -> (Vec<Route>, OpenApi) {
         safety::unsuspend_school_account,
         safety::ban_school_account,
         safety::flag_context,
+        safety::reopen_flag,
+        safety::warn_school_account,
         servers::admin_servers,
         servers::admin_suspend_server,
         servers::admin_delete_server,

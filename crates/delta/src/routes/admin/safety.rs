@@ -33,18 +33,40 @@ pub struct SafetyFlag {
     pub kind: String,
     pub confidence: f64,
     pub created_at: String,
+    /// Resolved flags stay listed so staff can reopen them
+    pub reviewed: bool,
+    /// Why the model flagged it, one sentence
+    pub reason: String,
+    /// The model's reasoning trace, when it gave one
+    pub reasoning: String,
+    /// Staff actions taken on this flag, oldest first
+    pub actions: Vec<FlagAction>,
+}
+
+#[derive(Serialize, JsonSchema, Debug)]
+pub struct FlagAction {
+    pub action: String,
+    pub actor: String,
+    pub at: String,
+    pub detail: String,
+}
+
+/// Which flag a panel action was taken from, so its history shows on that card
+#[derive(Deserialize, JsonSchema, Debug, Default)]
+pub struct PanelFlagRef {
+    pub message_id: Option<String>,
 }
 
 /// # List Safety Flags
 ///
-/// Unreviewed flags from school accounts, newest first. Message text is not included.
+/// Flags from school accounts, newest first, open and resolved. Message text is not included.
 #[openapi(tag = "Admin")]
 #[get("/safety/flags")]
 pub async fn list_flags(_panel: PanelUser, db: &State<Database>) -> Result<Json<Vec<SafetyFlag>>> {
     Ok(Json(school_flags(db.inner()).await?))
 }
 
-/// Open school-account flags, newest first. Shared by the HTTP list and the live websocket.
+/// School-account flags, newest first, open and resolved. Shared by the HTTP list and the live websocket.
 pub async fn school_flags(db: &Database) -> Result<Vec<SafetyFlag>> {
     let Database::MongoDb(mongo) = db else {
         return Ok(Vec::new());
@@ -52,9 +74,9 @@ pub async fn school_flags(db: &Database) -> Result<Vec<SafetyFlag>> {
 
     let mut cursor = mongo
         .col::<bson::Document>("safety_flags")
-        .find(doc! { "reviewed": false })
+        .find(doc! {})
         .sort(doc! { "_id": -1 })
-        .limit(100)
+        .limit(200)
         .await
         .map_err(|_| create_error!(InternalError))?;
 
@@ -81,6 +103,24 @@ pub async fn school_flags(db: &Database) -> Result<Vec<SafetyFlag>> {
             kind: doc.get_str("kind").unwrap_or_default().to_string(),
             confidence: doc.get_f64("confidence").unwrap_or_default(),
             created_at: doc.get_str("created_at").unwrap_or_default().to_string(),
+            reviewed: doc.get_bool("reviewed").unwrap_or(false),
+            reason: field(&doc, "reason"),
+            reasoning: field(&doc, "reasoning"),
+            actions: doc
+                .get_array("actions")
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|a| a.as_document())
+                        .map(|a| FlagAction {
+                            action: field(a, "action"),
+                            actor: field(a, "actor"),
+                            at: field(a, "at"),
+                            detail: field(a, "detail"),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
         });
     }
 
@@ -102,7 +142,7 @@ fn field(doc: &bson::Document, key: &str) -> String {
 
 /// # Flag Context
 ///
-/// The flagged message and the five messages before it in the same channel, oldest first.
+/// The flagged message, the five messages before and after it in its channel, and replies to it. Oldest first.
 /// Read live from the messages collection, and only for flags from school accounts.
 #[openapi(tag = "Admin")]
 #[get("/safety/flags/<message_id>/context")]
@@ -111,12 +151,17 @@ pub async fn flag_context(
     db: &State<Database>,
     message_id: String,
 ) -> Result<Json<Vec<ContextMessage>>> {
-    let Database::MongoDb(mongo) = db.inner() else {
+    Ok(Json(flag_context_data(db.inner(), &message_id).await?))
+}
+
+/// Shared by the HTTP route and the live websocket
+pub async fn flag_context_data(db: &Database, message_id: &str) -> Result<Vec<ContextMessage>> {
+    let Database::MongoDb(mongo) = db else {
         return Err(create_error!(InternalError));
     };
     let flag = mongo
         .col::<bson::Document>("safety_flags")
-        .find_one(doc! { "message_id": &message_id })
+        .find_one(doc! { "message_id": message_id })
         .await
         .map_err(|_| create_error!(InternalError))?
         .ok_or_else(|| create_error!(NotFound))?;
@@ -124,17 +169,26 @@ pub async fn flag_context(
     let channel_id = field(&flag, "channel_id");
 
     let messages = mongo.col::<bson::Document>("messages");
-    let mut cursor = messages
-        .find(doc! { "channel": &channel_id, "_id": { "$lte": &message_id } })
-        .sort(doc! { "_id": -1 })
-        .limit(6)
-        .await
-        .map_err(|_| create_error!(InternalError))?;
-    let mut docs = Vec::new();
-    while let Some(Ok(d)) = cursor.next().await {
-        docs.push(d);
+    let mut docs: Vec<bson::Document> = Vec::new();
+    // Five before, the flagged message and five after, and any replies to the flagged message
+    let queries: [(bson::Document, i32, i64); 3] = [
+        (doc! { "channel": &channel_id, "_id": { "$lt": message_id } }, -1, 5),
+        (doc! { "channel": &channel_id, "_id": { "$gte": message_id } }, 1, 6),
+        (doc! { "replies": message_id }, 1, 20),
+    ];
+    for (filter, sort, limit) in queries {
+        let mut cursor = messages
+            .find(filter)
+            .sort(doc! { "_id": sort })
+            .limit(limit)
+            .await
+            .map_err(|_| create_error!(InternalError))?;
+        while let Some(Ok(d)) = cursor.next().await {
+            docs.push(d);
+        }
     }
-    docs.reverse();
+    docs.sort_by(|a, b| field(a, "_id").cmp(&field(b, "_id")));
+    docs.dedup_by(|a, b| field(a, "_id") == field(b, "_id"));
 
     let author_ids: Vec<String> = docs.iter().map(|d| field(d, "author")).collect();
     let mut names = std::collections::HashMap::new();
@@ -147,19 +201,18 @@ pub async fn flag_context(
         names.insert(field(&user, "_id"), field(&user, "username"));
     }
 
-    Ok(Json(
-        docs.iter()
-            .map(|d| {
-                let author = field(d, "author");
-                ContextMessage {
-                    id: field(d, "_id"),
-                    username: names.get(&author).cloned().unwrap_or(author),
-                    content: field(d, "content"),
-                    flagged: field(d, "_id") == message_id,
-                }
-            })
-            .collect(),
-    ))
+    Ok(docs
+        .iter()
+        .map(|d| {
+            let author = field(d, "author");
+            ContextMessage {
+                id: field(d, "_id"),
+                username: names.get(&author).cloned().unwrap_or(author),
+                content: field(d, "content"),
+                flagged: field(d, "_id") == message_id,
+            }
+        })
+        .collect())
 }
 
 /// Fetches an account only when it is verified and on the school domain. Everything else is NotFound.
@@ -216,6 +269,8 @@ pub async fn school_account_info(
 
 #[derive(Deserialize, JsonSchema, Debug)]
 pub struct PanelSuspendData {
+    /// The flag the action was taken from, if any
+    pub message_id: Option<String>,
     /// Hours to suspend for, from 1 to 720
     pub hours: i64,
     /// Short reason, stored on the account. Sent to the user only at login. No email is sent.
@@ -236,6 +291,10 @@ pub async fn suspend_school_account(
     if !(1..=720).contains(&data.hours) {
         return Err(create_error!(InvalidOperation));
     }
+    let reason = data.reason.as_deref().map(str::trim).unwrap_or_default().to_string();
+    if reason.is_empty() || reason.len() > 500 {
+        return Err(create_error!(InvalidOperation));
+    }
     school_account(db, &id).await?;
     let until = iso8601_timestamp::Timestamp::now_utc()
         + iso8601_timestamp::Duration::hours(data.hours);
@@ -243,13 +302,11 @@ pub async fn suspend_school_account(
     // Reason is None so the database does not send the suspension email
     user.suspend(db, Some(until), None).await?;
     if let Database::MongoDb(mongo) = db.inner() {
-        if let Some(reason) = data.reason.as_deref() {
-            mongo
-                .col::<bson::Document>("users")
-                .update_one(doc! { "_id": &id }, doc! { "$set": { "admin_suspend_reason": reason } })
-                .await
-                .map_err(|_| create_error!(InternalError))?;
-        }
+        mongo
+            .col::<bson::Document>("users")
+            .update_one(doc! { "_id": &id }, doc! { "$set": { "admin_suspend_reason": &reason } })
+            .await
+            .map_err(|_| create_error!(InternalError))?;
     }
     // Taking action resolves the account's open flags
     if let Database::MongoDb(mongo) = db.inner() {
@@ -262,7 +319,8 @@ pub async fn suspend_school_account(
             .await
             .map_err(|_| create_error!(InternalError))?;
     }
-    audit(db, &panel.email, "suspend", &id, &format!("{}h", data.hours)).await;
+    record_action(db, data.message_id.as_deref(), &id, "suspended", &panel.email, &format!("{}h: {}", data.hours, reason)).await;
+    audit(db, &panel.email, "suspend", &id, &format!("{}h: {}", data.hours, reason)).await;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -270,12 +328,14 @@ pub async fn suspend_school_account(
 ///
 /// Staff action from the panel. Limited to school accounts and recorded in the audit log.
 #[openapi(tag = "Admin")]
-#[post("/safety/users/<id>/unsuspend")]
+#[post("/safety/users/<id>/unsuspend", data = "<data>")]
 pub async fn unsuspend_school_account(
     panel: PanelUser,
     db: &State<Database>,
     id: String,
+    data: Option<Json<PanelFlagRef>>,
 ) -> Result<Json<serde_json::Value>> {
+    let message_id = data.and_then(|d| d.message_id.clone());
     school_account(db, &id).await?;
     let mut user = db.fetch_user(&id).await?;
     if user.flags.unwrap_or(0) & 4 != 0 {
@@ -289,12 +349,15 @@ pub async fn unsuspend_school_account(
             .await
             .map_err(|_| create_error!(InternalError))?;
     }
+    record_action(db, message_id.as_deref(), &id, "unsuspended", &panel.email, "").await;
     audit(db, &panel.email, "unsuspend", &id, "").await;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]
 pub struct PanelBanData {
+    /// The flag the action was taken from, if any
+    pub message_id: Option<String>,
     /// Short reason, stored on the account. No email is sent.
     pub reason: Option<String>,
 }
@@ -311,17 +374,21 @@ pub async fn ban_school_account(
     data: Option<Json<PanelBanData>>,
 ) -> Result<Json<serde_json::Value>> {
     school_account(db, &id).await?;
-    let reason = data.and_then(|d| d.reason.clone());
+    let data_message_id = data.as_ref().and_then(|d| d.message_id.clone());
+    let reason = data
+        .and_then(|d| d.reason.clone())
+        .map(|r| r.trim().to_string())
+        .unwrap_or_default();
+    if reason.is_empty() || reason.len() > 500 {
+        return Err(create_error!(InvalidOperation));
+    }
 
     // Disabling the account through the model removes its active sessions
     let mut account = db.fetch_account(&id).await?;
     account.disable(db).await?;
 
     if let Database::MongoDb(mongo) = db.inner() {
-        let mut set = doc! { "flags": 4i32 };
-        if let Some(ref r) = reason {
-            set.insert("admin_ban_reason", r.as_str());
-        }
+        let set = doc! { "flags": 4i32, "admin_ban_reason": &reason };
         mongo
             .col::<bson::Document>("users")
             .update_one(doc! { "_id": &id }, doc! { "$set": set })
@@ -337,8 +404,35 @@ pub async fn ban_school_account(
             .await
             .map_err(|_| create_error!(InternalError))?;
     }
-    audit(db, &panel.email, "ban", &id, reason.as_deref().unwrap_or("")).await;
+    record_action(db, data_message_id.as_deref(), &id, "banned", &panel.email, &reason).await;
+    audit(db, &panel.email, "ban", &id, &reason).await;
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// Adds an action to the flag it was taken from, so resolved cards can show what was done.
+/// Without a message id it goes on every flag for that account.
+async fn record_action(db: &Database, message_id: Option<&str>, author_id: &str, action: &str, actor: &str, detail: &str) {
+    let Database::MongoDb(mongo) = db else {
+        return;
+    };
+    let entry = bson::to_bson(&doc! {
+        "action": action,
+        "actor": actor,
+        "at": chrono::Utc::now().to_rfc3339(),
+        "detail": detail,
+    })
+    .unwrap_or_default();
+    let filter = match message_id {
+        Some(id) => doc! { "message_id": id },
+        None => doc! { "author_id": author_id },
+    };
+    let result = mongo
+        .col::<bson::Document>("safety_flags")
+        .update_many(filter, doc! { "$push": { "actions": entry } })
+        .await;
+    if let Err(err) = result {
+        log::error!("Failed to record flag action {action}: {err:?}");
+    }
 }
 
 /// Records who did what in the panel, for later review
@@ -367,7 +461,7 @@ async fn audit(db: &Database, actor: &str, action: &str, target: &str, detail: &
 #[openapi(tag = "Admin")]
 #[post("/safety/flags/<message_id>/review")]
 pub async fn review_flag(
-    _panel: PanelUser,
+    panel: PanelUser,
     db: &State<Database>,
     message_id: String,
 ) -> Result<Json<serde_json::Value>> {
@@ -383,7 +477,75 @@ pub async fn review_flag(
         )
         .await
         .map_err(|_| create_error!(InternalError))?;
+    record_action(db, Some(&message_id), "", "resolved", &panel.email, "").await;
 
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(Deserialize, JsonSchema, Debug)]
+pub struct PanelWarnData {
+    /// The flag the action was taken from, if any
+    pub message_id: Option<String>,
+    /// What the warning is for. Shown to the user with their warnings. Required.
+    pub reason: String,
+}
+
+/// # Warn School Account
+///
+/// Staff action from the panel. Adds a warning to the account. No email is sent.
+#[openapi(tag = "Admin")]
+#[post("/safety/users/<id>/warn", data = "<data>")]
+pub async fn warn_school_account(
+    panel: PanelUser,
+    db: &State<Database>,
+    id: String,
+    data: Json<PanelWarnData>,
+) -> Result<Json<serde_json::Value>> {
+    school_account(db, &id).await?;
+    let reason = data.reason.trim().to_string();
+    if reason.is_empty() || reason.len() > 500 {
+        return Err(create_error!(InvalidOperation));
+    }
+    if let Database::MongoDb(mongo) = db.inner() {
+        let warning = bson::to_bson(&doc! {
+            "reason": &reason,
+            "created_at": chrono::Utc::now().to_rfc3339(),
+        })
+        .unwrap_or_default();
+        mongo
+            .col::<bson::Document>("users")
+            .update_one(doc! { "_id": &id }, doc! { "$push": { "admin_warnings": warning } })
+            .await
+            .map_err(|_| create_error!(InternalError))?;
+    }
+    record_action(db, data.message_id.as_deref(), &id, "warned", &panel.email, &reason).await;
+    audit(db, &panel.email, "warn", &id, &reason).await;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+/// # Reopen Safety Flag
+///
+/// Marks a resolved flag as open again so it returns to the queue.
+#[openapi(tag = "Admin")]
+#[post("/safety/flags/<message_id>/reopen")]
+pub async fn reopen_flag(
+    panel: PanelUser,
+    db: &State<Database>,
+    message_id: String,
+) -> Result<Json<serde_json::Value>> {
+    let Database::MongoDb(mongo) = db.inner() else {
+        return Err(create_error!(InternalError));
+    };
+    mongo
+        .col::<bson::Document>("safety_flags")
+        .update_many(
+            doc! { "message_id": &message_id },
+            doc! { "$set": { "reviewed": false }, "$unset": { "resolved_by": "" as &str } },
+        )
+        .await
+        .map_err(|_| create_error!(InternalError))?;
+    record_action(db, Some(&message_id), "", "reopened", &panel.email, "").await;
+    audit(db, &panel.email, "reopen", &message_id, "").await;
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
@@ -617,7 +779,8 @@ pub async fn logout(cookies: &CookieJar<'_>, db: &State<Database>) -> Status {
     Status::NoContent
 }
 
-/// Live queue for the panel. Sends the flag list whenever it changes, checked once a second on the server.
+/// Live panel feed. Sends the queue, and the open message's context if the page is watching one.
+/// Pushes only when something changes, checked once a second on the server.
 /// The socket needs a signed-in panel session, so it is refused for anyone else.
 #[get("/safety/ws")]
 pub fn safety_ws(
@@ -632,19 +795,34 @@ pub fn safety_ws(
             use rocket_ws::Message;
 
             let mut last = String::new();
+            // The message the page has open, set by the client with {"watch": "<message id>"} or null
+            let mut watch: Option<String> = None;
             loop {
-                if let Ok(flags) = school_flags(&db).await {
-                    let json = serde_json::to_string(&flags).unwrap_or_else(|_| "[]".into());
-                    if json != last {
-                        if stream.send(Message::Text(json.clone())).await.is_err() {
-                            break;
-                        }
-                        last = json;
+                let flags = school_flags(&db).await.unwrap_or_default();
+                let context = match &watch {
+                    Some(id) => flag_context_data(&db, id).await.ok(),
+                    None => None,
+                };
+                let payload = serde_json::json!({
+                    "flags": flags,
+                    "watch": watch,
+                    "context": context,
+                })
+                .to_string();
+                if payload != last {
+                    if stream.send(Message::Text(payload.clone())).await.is_err() {
+                        break;
                     }
+                    last = payload;
                 }
                 // Wait up to a second for a client message or close; a timeout just means check again
                 match tokio::time::timeout(std::time::Duration::from_secs(1), stream.next()).await {
                     Ok(None) | Ok(Some(Err(_))) => break,
+                    Ok(Some(Ok(Message::Text(text)))) => {
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                            watch = v["watch"].as_str().map(|id| id.to_string());
+                        }
+                    }
                     _ => {}
                 }
             }
