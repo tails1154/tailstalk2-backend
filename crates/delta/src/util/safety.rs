@@ -261,17 +261,27 @@ const VIOLENCE_PHRASES: &[&str] = &[
     "i'll kill you",
 ];
 
+/// Lowercases text, keeps only letters, and collapses runs of the same letter, so
+/// "k i l llll you" and "kill you" compare equal. Applied to messages and phrases alike.
+fn normalize(text: &str) -> String {
+    let mut out = String::new();
+    for c in text.chars().filter(|c| c.is_ascii_alphabetic()).map(|c| c.to_ascii_lowercase()) {
+        if out.chars().last() != Some(c) {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// The kind and phrase of the first rule that matches, if any. Crisis phrases are checked first.
+/// Matching ignores spacing, punctuation, capitals and repeated letters.
 fn rule_match(content: &str) -> Option<(&'static str, &'static str)> {
-    let lower = content.to_lowercase();
-    if let Some(phrase) = SELF_HARM_PHRASES.iter().copied().find(|phrase| lower.contains(phrase)) {
+    let haystack = normalize(content);
+    let hit = |phrase: &&'static str| haystack.contains(&normalize(phrase));
+    if let Some(phrase) = SELF_HARM_PHRASES.iter().copied().find(hit) {
         return Some(("self_harm", phrase));
     }
-    VIOLENCE_PHRASES
-        .iter()
-        .copied()
-        .find(|phrase| lower.contains(phrase))
-        .map(|phrase| ("threat", phrase))
+    VIOLENCE_PHRASES.iter().copied().find(hit).map(|phrase| ("threat", phrase))
 }
 
 /// Runs the review in the background so sending a message is never delayed or blocked by it
@@ -457,5 +467,25 @@ async fn store_flag(
         .await;
     if let Err(err) = result {
         log::error!("Failed to store safety flag for message {}: {err:?}", message.id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rule_match;
+
+    #[test]
+    fn rules_ignore_spacing_case_and_repeated_letters() {
+        assert_eq!(rule_match("I'm gonnaaa KILL you").map(|m| m.0), Some("threat"));
+        assert_eq!(rule_match("s u i iii c i d e").map(|m| m.0), Some("self_harm"));
+        assert_eq!(rule_match("i want to diiiie").map(|m| m.0), Some("self_harm"));
+        assert_eq!(rule_match("im gonna commit    genocide").map(|m| m.0), Some("threat"));
+    }
+
+    #[test]
+    fn rules_do_not_match_ordinary_text() {
+        assert_eq!(rule_match("im gonna execute you trust"), None);
+        assert_eq!(rule_match("shh, the test is at 10"), None);
+        assert_eq!(rule_match("we studied genocide in history class"), None);
     }
 }
