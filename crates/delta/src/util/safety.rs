@@ -4,8 +4,8 @@
 //! is skipped before any AI call. Flags go to the staff review queue. The scanner never warns,
 //! suspends, or bans anyone itself, and nothing is emailed.
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
-use std::time::Duration;
 
 use revolt_config::{config, ApiAisd};
 use revolt_database::mongodb::bson::{self, doc};
@@ -18,7 +18,9 @@ use tokio::sync::Semaphore;
 const SCHOOL_DOMAIN: &str = "@cats.angletonisd.net";
 
 const SYSTEM_PROMPT: &str = "You review chat messages for a school platform. Decide whether the message \
-expresses a real intention to harm oneself (self_harm) or a real threat of violence against another person (threat). \
+expresses a real intention to harm oneself (self_harm) or a real threat of violence against another person (threat), or intimidation, insults or abuse aimed at a specific person (harassment). \
+Harassment includes threats of consequences that are not violence, such as \"you're going down\", \"you'll regret this\", or threats to shut down, ruin, or take over a person's account, server or work. \
+When a message is aimed at a named person with that kind of pressure, it is harassment even if no violence is mentioned. \
 Quoted text, fiction, jokes, song lyrics, or discussion of a topic without intent do not count. \
 Earlier messages from the channel are given for context only. Judge only the message marked as the message to judge, \
 and use the earlier messages to work out what words like \"it\", \"this\" or \"do it\" refer to. \
@@ -28,7 +30,7 @@ A message that continues a plan stated earlier counts as intent. \
 Short strings are often not self-harm. \"sh\" alone means nothing: it can be shh, a typo for ssh, or the shell sh. \
 Only flag \"sh\" when the message says the sender plans to self-harm, for example \"gonna do sh\" or \"gonna do sh to myself\". \
 A stated plan still counts if the sender adds that it is a test or that they are not really considering it: flag it and let staff decide. \
-Reply with only a JSON object: {\"self_harm\": true or false, \"threat\": true or false, \"confidence\": a number from 0 to 1, \"reason\": one short sentence saying why, quoting the key words}.";
+Reply with only a JSON object: {\"self_harm\": true or false, \"threat\": true or false, \"harassment\": true or false, \"confidence\": a number from 0 to 1, \"reason\": one short sentence saying why, quoting the key words}.";
 
 #[derive(Debug, Deserialize)]
 struct Verdict {
@@ -36,6 +38,8 @@ struct Verdict {
     self_harm: bool,
     #[serde(default)]
     threat: bool,
+    #[serde(default)]
+    harassment: bool,
     #[serde(default)]
     confidence: f32,
     /// One sentence from the model saying why it decided this
@@ -46,8 +50,8 @@ struct Verdict {
 fn http() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
+        // No timeout: the classifier waits for llama-server to finish, however long that takes
         reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
             .build()
             .expect("valid reqwest client")
     })
@@ -56,7 +60,8 @@ fn http() -> &'static reqwest::Client {
 /// Limits how many llama-server requests run at once
 fn limit() -> &'static Semaphore {
     static LIMIT: OnceLock<Semaphore> = OnceLock::new();
-    LIMIT.get_or_init(|| Semaphore::new(4))
+    // llama-server runs one request at a time (-np 1), so queue here instead of at the server
+    LIMIT.get_or_init(|| Semaphore::new(1))
 }
 
 /// Whether a verified account belongs to the school scope
@@ -94,16 +99,27 @@ fn parse_verdict(text: &str) -> Result<Verdict, String> {
     serde_json::from_str(&text[start..=end]).map_err(|e| e.to_string())
 }
 
-/// Returns the verdict and the model's own reasoning trace, when llama-server includes one
-async fn classify(aisd: &ApiAisd, content: &str) -> Result<(Verdict, String), String> {
+/// Room for the model to think before it must answer. Plenty for hard messages, not enough to loop for long.
+const FIRST_MAX_TOKENS: u32 = 2048;
+/// Smaller budget for the single retry after the model ran out of room
+const RETRY_MAX_TOKENS: u32 = 1024;
+/// How much of the cut-off reasoning the retry is shown, roughly 500 tokens
+const RETRY_TAIL_CHARS: usize = 2000;
+
+struct Reply {
+    /// The final answer, or None if the model was cut off before it answered
+    content: Option<String>,
+    /// The model's reasoning trace, when llama-server includes one
+    reasoning: String,
+}
+
+async fn ask(aisd: &ApiAisd, messages: Vec<serde_json::Value>, max_tokens: u32) -> Result<Reply, String> {
     let url = format!("{}/v1/chat/completions", aisd.url.trim_end_matches('/'));
     let body = json!({
         "model": aisd.model,
         "temperature": 0,
-        "messages": [
-            { "role": "system", "content": SYSTEM_PROMPT },
-            { "role": "user", "content": content },
-        ],
+        "max_tokens": max_tokens,
+        "messages": messages,
     });
 
     let mut request = http().post(url).json(&body);
@@ -121,14 +137,49 @@ async fn classify(aisd: &ApiAisd, content: &str) -> Result<(Verdict, String), St
         .await
         .map_err(|e| e.to_string())?;
 
-    let text = response["choices"][0]["message"]["content"]
+    let message = &response["choices"][0]["message"];
+    let content = message["content"]
         .as_str()
-        .ok_or("reply has no message content")?;
-    let reasoning = response["choices"][0]["message"]["reasoning_content"]
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string);
+    let reasoning = message["reasoning_content"]
         .as_str()
         .unwrap_or_default()
         .to_string();
-    Ok((parse_verdict(text)?, reasoning))
+    Ok(Reply { content, reasoning })
+}
+
+/// Returns the verdict and the model's own reasoning trace, when llama-server includes one.
+/// If the model runs out of room while still thinking, it is retried once with the end of that
+/// reasoning and a request to reason less. A second failure is an error, which becomes a staff flag.
+async fn classify(aisd: &ApiAisd, content: &str) -> Result<(Verdict, String), String> {
+    let system = json!({ "role": "system", "content": SYSTEM_PROMPT });
+    let user = json!({ "role": "user", "content": content });
+
+    let first = ask(aisd, vec![system.clone(), user.clone()], FIRST_MAX_TOKENS).await?;
+    if let Some(text) = first.content {
+        return Ok((parse_verdict(&text)?, first.reasoning));
+    }
+
+    let tail: String = {
+        let mut chars: Vec<char> = first.reasoning.chars().rev().take(RETRY_TAIL_CHARS).collect();
+        chars.reverse();
+        chars.into_iter().collect()
+    };
+    let note = format!(
+        "Your last response hit the reasoning limit. Here is the end of your reasoning:\n{tail}\n\nReason less and reply with only the JSON object."
+    );
+    let retry = ask(
+        aisd,
+        vec![system, user, json!({ "role": "user", "content": note })],
+        RETRY_MAX_TOKENS,
+    )
+    .await?;
+    match retry.content {
+        Some(text) => Ok((parse_verdict(&text)?, retry.reasoning)),
+        None => Err("reasoning limit hit on the retry too".to_string()),
+    }
 }
 
 /// The last few messages in the channel before this one, oldest first, so the model can read what "it" refers to
@@ -163,12 +214,56 @@ async fn earlier_messages(db: &Database, message: &Message, author_id: &str) -> 
     lines.join("\n")
 }
 
+/// Messages queued in the current batch, and how many of them have finished. Counts only, never text.
+static BATCH_TOTAL: AtomicUsize = AtomicUsize::new(0);
+static BATCH_DONE: AtomicUsize = AtomicUsize::new(0);
+
+/// (finished, total) for the current batch. Total is 0 when the scanner is idle.
+pub fn scan_progress() -> (usize, usize) {
+    (BATCH_DONE.load(Ordering::Relaxed), BATCH_TOTAL.load(Ordering::Relaxed))
+}
+
+/// Starts a new batch when work arrives, and closes it when every queued message has finished
+fn finish_one() {
+    let done = BATCH_DONE.fetch_add(1, Ordering::Relaxed) + 1;
+    if done >= BATCH_TOTAL.load(Ordering::Relaxed) {
+        BATCH_TOTAL.store(0, Ordering::Relaxed);
+        BATCH_DONE.store(0, Ordering::Relaxed);
+    }
+}
+
+/// Phrases that mean a self-harm plan or crisis on their own. Matching is case-insensitive.
+const SELF_HARM_PHRASES: &[&str] = &[
+    "kill myself",
+    "end my life",
+    "want to die",
+    "wanna die",
+    "dont need to be here",
+    "don't need to be here",
+    "goodbye world",
+    "gonna end it",
+    "going to end it",
+    "end it all",
+    "suicide",
+];
+
+fn self_harm_phrase(content: &str) -> Option<&'static str> {
+    let lower = content.to_lowercase();
+    SELF_HARM_PHRASES.iter().copied().find(|phrase| lower.contains(phrase))
+}
+
 /// Runs the review in the background so sending a message is never delayed or blocked by it
 pub fn spawn_check(db: Database, message: Message, author_id: String) {
     tokio::spawn(async move {
+        // Only count work when scanning is switched on
+        if !config().await.api.aisd.enabled {
+            return;
+        }
+        BATCH_TOTAL.fetch_add(1, Ordering::Relaxed);
         if let Err(err) = check(&db, &message, &author_id).await {
             log::error!("Safety review failed for message {}: {err}", message.id);
         }
+        finish_one();
     });
 }
 
@@ -187,6 +282,21 @@ async fn check(db: &Database, message: &Message, author_id: &str) -> Result<(), 
         return Ok(());
     };
 
+    // Explicit self-harm phrases are flagged directly, so a model miss can't hide a crisis
+    if let Some(phrase) = self_harm_phrase(content) {
+        store_flag(
+            db,
+            message,
+            author_id,
+            "self_harm",
+            1.0,
+            &format!("Matched a self-harm phrase (\"{phrase}\") by rule, not by the model."),
+            "",
+        )
+        .await;
+        return Ok(());
+    }
+
     let _permit = limit().acquire().await.map_err(|e| e.to_string())?;
     let earlier = earlier_messages(db, message, author_id).await;
     let judged = if earlier.is_empty() {
@@ -194,20 +304,44 @@ async fn check(db: &Database, message: &Message, author_id: &str) -> Result<(), 
     } else {
         format!("Earlier messages in this channel:\n{earlier}\n\nMessage to judge (from the sender):\n{content}")
     };
-    let (verdict, reasoning) = classify(&settings, &judged).await?;
-
-    let kind = match (verdict.self_harm, verdict.threat) {
-        (true, true) => "self_harm, threat",
-        (true, false) => "self_harm",
-        (false, true) => "threat",
-        (false, false) => return Ok(()),
+    let (verdict, reasoning) = match classify(&settings, &judged).await {
+        Ok(result) => result,
+        Err(err) => {
+            // Staff get a flag, so a message is never skipped silently
+            store_flag(
+                db,
+                message,
+                author_id,
+                "review failed",
+                0.0,
+                "The classifier could not review this message. Please review it by hand.",
+                "",
+            )
+            .await;
+            return Err(err);
+        }
     };
+
+    let mut kinds = Vec::new();
+    if verdict.self_harm {
+        kinds.push("self_harm");
+    }
+    if verdict.threat {
+        kinds.push("threat");
+    }
+    if verdict.harassment {
+        kinds.push("harassment");
+    }
+    if kinds.is_empty() {
+        return Ok(());
+    }
+    let kind = kinds.join(", ");
     if verdict.confidence < settings.threshold {
         return Ok(());
     }
 
     // Flags are shown as notifications in the AISD panel. Nothing is emailed.
-    store_flag(db, message, author_id, kind, verdict.confidence, &verdict.reason, &reasoning).await;
+    store_flag(db, message, author_id, &kind, verdict.confidence, &verdict.reason, &reasoning).await;
     Ok(())
 }
 

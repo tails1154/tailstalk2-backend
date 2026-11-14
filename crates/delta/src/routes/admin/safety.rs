@@ -803,10 +803,12 @@ pub fn safety_ws(
                     Some(id) => flag_context_data(&db, id).await.ok(),
                     None => None,
                 };
+                let (scan_done, scan_total) = crate::util::safety::scan_progress();
                 let payload = serde_json::json!({
                     "flags": flags,
                     "watch": watch,
                     "context": context,
+                    "scanner": { "done": scan_done, "total": scan_total },
                 })
                 .to_string();
                 if payload != last {
